@@ -27,6 +27,7 @@
 #include "menu/menu.h"
 #include "output.h"
 #include "output-virtual.h"
+#include "overview.h"
 #include "regions.h"
 #include "show-desktop.h"
 #include "ssd.h"
@@ -34,6 +35,7 @@
 #include "translate.h"
 #include "view.h"
 #include "workspaces.h"
+#include "zoom.h"
 
 enum action_arg_type {
 	LAB_ACTION_ARG_STR = 0,
@@ -137,7 +139,8 @@ struct action_arg_list {
 	X(TOGGLE_SHOW_DESKTOP, "ToggleShowDesktop") \
 	X(WARP_CURSOR, "WarpCursor") \
 	X(HIDE_CURSOR, "HideCursor") \
-	X(DEBUG_TOGGLE_KEY_STATE_INDICATOR, "DebugToggleKeyStateIndicator")
+	X(DEBUG_TOGGLE_KEY_STATE_INDICATOR, "DebugToggleKeyStateIndicator") \
+	X(WINDOW_OVERVIEW, "WindowOverview")
 
 /*
  * Will expand to:
@@ -1558,12 +1561,28 @@ run_action(struct view *view, struct action *action,
 	case ACTION_TYPE_TOGGLE_MAGNIFY:
 		magnifier_toggle();
 		break;
-	case ACTION_TYPE_ZOOM_IN:
-		magnifier_set_scale(MAGNIFY_INCREASE);
-		break;
-	case ACTION_TYPE_ZOOM_OUT:
-		magnifier_set_scale(MAGNIFY_DECREASE);
-		break;
+case ACTION_TYPE_ZOOM_IN: {
+	struct output *output = output_nearest_to_cursor();
+	if (output) {
+		if (output->zoom_enabled) {
+			zoom_adjust_scale(output, rc.mag_increment);
+		} else {
+			zoom_enable(output);
+		}
+	}
+	break;
+}
+case ACTION_TYPE_ZOOM_OUT: {
+	struct output *output = output_nearest_to_cursor();
+	if (output) {
+		if (output->zoom_enabled && output->zoom_scale > 1.0 + rc.mag_increment) {
+			zoom_adjust_scale(output, -rc.mag_increment);
+		} else {
+			zoom_disable(output);
+		}
+	}
+	break;
+}
 	case ACTION_TYPE_TOGGLE_SHOW_DESKTOP:
 		show_desktop_toggle();
 		break;
@@ -1577,10 +1596,21 @@ run_action(struct view *view, struct action *action,
 	case ACTION_TYPE_HIDE_CURSOR:
 		cursor_set_visible(&server.seat, false);
 		break;
-	case ACTION_TYPE_DEBUG_TOGGLE_KEY_STATE_INDICATOR:
-		key_state_indicator_toggle();
-		break;
-	case ACTION_TYPE_INVALID:
+case ACTION_TYPE_DEBUG_TOGGLE_KEY_STATE_INDICATOR:
+	key_state_indicator_toggle();
+	break;
+case ACTION_TYPE_WINDOW_OVERVIEW: {
+	struct output *output = view ? view->output : output_nearest_to_cursor();
+	if (output) {
+		if (overview_is_active()) {
+			overview_finish();
+		} else {
+			overview_init(output);
+		}
+	}
+	break;
+}
+case ACTION_TYPE_INVALID:
 		wlr_log(WLR_ERROR, "Not executing unknown action");
 		break;
 	default:

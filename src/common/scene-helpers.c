@@ -8,6 +8,7 @@
 #include "common/mem.h"
 #include "magnifier.h"
 #include "output.h"
+#include "zoom.h"
 
 struct wlr_surface *
 lab_wlr_surface_from_node(struct wlr_scene_node *node)
@@ -104,6 +105,7 @@ lab_wlr_scene_output_commit(struct wlr_scene_output *scene_output,
 	struct wlr_output *wlr_output = scene_output->output;
 	struct output *output = wlr_output->data;
 	bool wants_magnification = output_wants_magnification(output);
+	bool wants_zoom = output_wants_zoom(output);
 
 	/*
 	 * FIXME: Regardless of wants_magnification, we are currently adding
@@ -111,7 +113,7 @@ lab_wlr_scene_output_commit(struct wlr_scene_output *scene_output,
 	 * rendering on every output commit and overloads CPU.
 	 * We also need to verify the necessity of wants_magnification.
 	 */
-	if (!wlr_scene_output_needs_frame(scene_output) && !wants_magnification) {
+	if (!wlr_scene_output_needs_frame(scene_output) && !wants_magnification && !wants_zoom) {
 		return true;
 	}
 
@@ -130,6 +132,9 @@ lab_wlr_scene_output_commit(struct wlr_scene_output *scene_output,
 	struct wlr_box additional_damage = {0};
 	if (state->buffer && magnifier_is_enabled()) {
 		magnifier_draw(output, state->buffer, &additional_damage);
+	}
+	if (state->buffer && !wants_magnification && output->zoom_enabled) {
+		zoom_draw(output, state->buffer, &additional_damage);
 	}
 
 	bool committed = wlr_output_commit_state(wlr_output, state);

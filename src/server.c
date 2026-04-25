@@ -65,6 +65,9 @@
 #include "magnifier.h"
 #include "menu/menu.h"
 #include "output.h"
+#include "screenshot-ipc.h"
+#include "wm-ipc.h"
+#include "zoom-ipc.h"
 #include "output-virtual.h"
 #include "regions.h"
 #include "resize-indicator.h"
@@ -785,6 +788,10 @@ server_start(void)
 	} else {
 		wlr_log(WLR_DEBUG, "WAYLAND_DISPLAY=%s", socket);
 	}
+
+	zoom_ipc_init();
+	wm_ipc_init();
+	screenshot_ipc_init();
 }
 
 void
@@ -826,5 +833,8 @@ server_finish(void)
 	workspaces_destroy();
 	wlr_scene_node_destroy(&server.scene->tree.node);
 
+	zoom_ipc_finish();
+	wm_ipc_finish();
+	screenshot_ipc_finish();
 	wl_display_destroy(server.wl_display);
 }

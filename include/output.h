@@ -38,6 +38,10 @@ struct output {
 	 * disconnected and connected again.
 	 */
 	uint64_t id_bit;
+
+	/* Zoom state */
+	bool zoom_enabled;
+	double zoom_scale;
 };
 
 #undef LAB_NR_LAYERS

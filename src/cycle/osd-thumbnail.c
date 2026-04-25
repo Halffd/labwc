@@ -21,6 +21,9 @@
 #include "theme.h"
 #include "view.h"
 
+#define ALTTAB_ITEM_WIDTH 500
+#define ALTTAB_ITEM_HEIGHT 320
+
 struct cycle_osd_thumbnail_item {
 	struct cycle_osd_item base;
 	struct scaled_font_buffer *normal_label;
@@ -125,18 +128,20 @@ create_label(struct wlr_scene_tree *parent, struct view *view,
 
 static struct cycle_osd_thumbnail_item *
 create_item_scene(struct wlr_scene_tree *parent, struct view *view,
-		struct cycle_osd_output *osd_output)
+	struct cycle_osd_output *osd_output)
 {
 	struct theme *theme = rc.theme;
 	struct window_switcher_thumbnail_theme *switcher_theme =
 		&theme->osd_window_switcher_thumbnail;
 	int padding = theme->border_width + switcher_theme->item_padding;
-	int title_y = switcher_theme->item_height - padding - switcher_theme->title_height;
+	int title_height = switcher_theme->title_height;
+	int thumb_height = ALTTAB_ITEM_HEIGHT - padding - title_height - padding;
+	int title_y = ALTTAB_ITEM_HEIGHT - padding - title_height;
 	struct wlr_box thumb_bounds = {
 		.x = padding,
 		.y = padding,
-		.width = switcher_theme->item_width - 2 * padding,
-		.height = title_y - 2 * padding,
+		.width = ALTTAB_ITEM_WIDTH - 2 * padding,
+		.height = thumb_height - 2 * padding,
 	};
 	if (thumb_bounds.width <= 0 || thumb_bounds.height <= 0) {
 		wlr_log(WLR_ERROR, "too small thumbnail area");
@@ -156,14 +161,14 @@ create_item_scene(struct wlr_scene_tree *parent, struct view *view,
 		.nr_borders = 1,
 		.border_width = switcher_theme->item_active_border_width,
 		.bg_color = switcher_theme->item_active_bg_color,
-		.width = switcher_theme->item_width,
-		.height = switcher_theme->item_height,
+		.width = ALTTAB_ITEM_WIDTH,
+		.height = ALTTAB_ITEM_HEIGHT,
 	};
 	item->active_bg = lab_scene_rect_create(tree, &opts);
 
 	/* hitbox for mouse clicks */
-	lab_wlr_scene_rect_create(tree, switcher_theme->item_width,
-		switcher_theme->item_height, (float[4]) {0});
+	lab_wlr_scene_rect_create(tree, ALTTAB_ITEM_WIDTH,
+		ALTTAB_ITEM_HEIGHT, (float[4]) {0});
 
 	/* thumbnail */
 	struct wlr_buffer *thumb_buffer = render_thumb(osd_output->output, view);
@@ -188,13 +193,13 @@ create_item_scene(struct wlr_scene_tree *parent, struct view *view,
 		switcher_theme, theme->osd_label_text_color,
 		switcher_theme->item_active_bg_color, title_y);
 
-	/* icon */
+	/* icon - bottom right */
 	int icon_size = switcher_theme->item_icon_size;
 	struct scaled_icon_buffer *icon_buffer =
 		scaled_icon_buffer_create(tree, icon_size, icon_size);
 	scaled_icon_buffer_set_view(icon_buffer, view);
-	int x = (switcher_theme->item_width - icon_size) / 2;
-	int y = title_y - padding - icon_size + 10; /* slide by 10px */
+	int x = ALTTAB_ITEM_WIDTH - padding - icon_size;
+	int y = title_y - (icon_size - title_height) / 2;
 	wlr_scene_node_set_position(&icon_buffer->scene_buffer->node, x, y);
 
 	return item;
@@ -202,7 +207,7 @@ create_item_scene(struct wlr_scene_tree *parent, struct view *view,
 
 static void
 get_items_geometry(struct output *output, int nr_thumbs,
-		int *nr_cols, int *nr_rows, int *nr_visible_rows)
+	int *nr_cols, int *nr_rows, int *nr_visible_rows)
 {
 	struct theme *theme = rc.theme;
 	struct window_switcher_thumbnail_theme *switcher_theme =
@@ -212,16 +217,13 @@ get_items_geometry(struct output *output, int nr_thumbs,
 		&output_width, &output_height);
 	int padding = theme->osd_border_width + switcher_theme->padding;
 
-	int max_bg_width = switcher_theme->max_width;
-	if (switcher_theme->max_width_is_percent) {
-		max_bg_width = output_width * switcher_theme->max_width / 100;
-	}
+	int max_bg_width = output_width - 2 * padding;
 
 	*nr_rows = 1;
 	*nr_cols = nr_thumbs;
 	while (1) {
 		assert(*nr_rows <= nr_thumbs);
-		int bg_width = *nr_cols * switcher_theme->item_width + 2 * padding;
+		int bg_width = *nr_cols * ALTTAB_ITEM_WIDTH + 2 * padding;
 		if (bg_width < max_bg_width) {
 			break;
 		}
@@ -233,7 +235,7 @@ get_items_geometry(struct output *output, int nr_thumbs,
 	}
 
 	*nr_visible_rows = MIN(*nr_rows,
-		(output_height - 2 * padding) / switcher_theme->item_height);
+		(output_height - 2 * padding) / ALTTAB_ITEM_HEIGHT);
 }
 
 static void
@@ -262,14 +264,14 @@ cycle_osd_thumbnail_init(struct cycle_osd_output *osd_output)
 		if (!item) {
 			break;
 		}
-		int x = (index % nr_cols) * switcher_theme->item_width + padding;
-		int y = (index / nr_cols) * switcher_theme->item_height + padding;
+		int x = (index % nr_cols) * ALTTAB_ITEM_WIDTH + padding;
+		int y = (index / nr_cols) * ALTTAB_ITEM_HEIGHT + padding;
 		wlr_scene_node_set_position(&item->base.tree->node, x, y);
 		index++;
 	}
 
-	int items_width = switcher_theme->item_width * nr_cols;
-	int items_height = switcher_theme->item_height * nr_visible_rows;
+	int items_width = ALTTAB_ITEM_WIDTH * nr_cols;
+	int items_height = ALTTAB_ITEM_HEIGHT * nr_visible_rows;
 
 	struct wlr_box scrollbar_area = {
 		.x = padding + items_width - SCROLLBAR_W,
@@ -278,7 +280,7 @@ cycle_osd_thumbnail_init(struct cycle_osd_output *osd_output)
 		.height = items_height,
 	};
 	cycle_osd_scroll_init(osd_output, scrollbar_area,
-		switcher_theme->item_height, nr_cols, nr_rows, nr_visible_rows,
+		ALTTAB_ITEM_HEIGHT, nr_cols, nr_rows, nr_visible_rows,
 		switcher_theme->item_active_border_color,
 		switcher_theme->item_active_bg_color);
 

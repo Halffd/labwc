@@ -66,6 +66,7 @@
 #include "menu/menu.h"
 #include "output.h"
 #include "screenshot-ipc.h"
+#include "screen-edges.h"
 #include "wm-ipc.h"
 #include "zoom-ipc.h"
 #include "output-virtual.h"
@@ -792,6 +793,7 @@ server_start(void)
 	zoom_ipc_init();
 	wm_ipc_init();
 	screenshot_ipc_init();
+	screen_edges_init();
 }
 
 void
@@ -836,5 +838,6 @@ server_finish(void)
 	zoom_ipc_finish();
 	wm_ipc_finish();
 	screenshot_ipc_finish();
+	screen_edges_finish();
 	wl_display_destroy(server.wl_display);
 }

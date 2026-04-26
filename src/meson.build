@@ -10,6 +10,7 @@ labwc_sources = files(
 'layers.c',
 'magnifier.c',
 'screenshot-ipc.c',
+'screen-edges.c',
 'wm-ipc.c',
 'zoom.c',
 'zoom-ipc.c',

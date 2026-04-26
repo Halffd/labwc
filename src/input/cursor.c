@@ -34,6 +34,7 @@
 #include "output.h"
 #include "resistance.h"
 #include "resize-outlines.h"
+#include "screen-edges.h"
 #include "ssd.h"
 #include "view.h"
 #include "xwayland.h"
@@ -959,9 +960,10 @@ handle_motion(struct wl_listener *listener, void *data)
 			event->delta_x, event->delta_y, event->unaccel_dx,
 			event->unaccel_dy);
 
-		preprocess_cursor_motion(seat, event->pointer,
-			event->time_msec, event->delta_x, event->delta_y);
+preprocess_cursor_motion(seat, event->pointer,
+		event->time_msec, event->delta_x, event->delta_y);
 	}
+	screen_edges_check((int)seat->cursor->x, (int)seat->cursor->y);
 }
 
 static void
@@ -989,6 +991,7 @@ handle_motion_absolute(struct wl_listener *listener, void *data)
 
 	preprocess_cursor_motion(seat, event->pointer,
 		event->time_msec, dx, dy);
+	screen_edges_check((int)seat->cursor->x, (int)seat->cursor->y);
 }
 
 static void

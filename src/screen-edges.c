@@ -13,11 +13,15 @@ static struct {
 	bool right;
 	bool top;
 	bool bottom;
-} edge_triggers = {0};
+} edge_triggers = {
+	.left = true,
+	.right = true,
+	.top = false,
+	.bottom = false
+};
 
 static int last_x = -1;
 static int last_y = -1;
-
 static uint64_t last_edge_check_time = 0;
 #define EDGE_CHECK_INTERVAL_MS 150
 
@@ -97,18 +101,34 @@ screen_edges_check(int x, int y)
 	check_edges(x, y);
 }
 
+bool
+screen_edges_get_triggers(bool *left, bool *right, bool *top, bool *bottom)
+{
+	if (left) *left = edge_triggers.left;
+	if (right) *right = edge_triggers.right;
+	if (top) *top = edge_triggers.top;
+	if (bottom) *bottom = edge_triggers.bottom;
+	return true;
+}
+
+void
+screen_edges_set_triggers(bool left, bool right, bool top, bool bottom)
+{
+	edge_triggers.left = left;
+	edge_triggers.right = right;
+	edge_triggers.top = top;
+	edge_triggers.bottom = bottom;
+	wlr_log(WLR_INFO, "screen-edges: triggers updated (left=%d, right=%d, top=%d, bottom=%d)",
+		edge_triggers.left, edge_triggers.right,
+		edge_triggers.top, edge_triggers.bottom);
+}
+
 void
 screen_edges_init(void)
 {
-	edge_triggers.left = true;
-	edge_triggers.right = true;
-	edge_triggers.top = false;
-	edge_triggers.bottom = false;
-
 	last_x = -1;
 	last_y = -1;
 	last_edge_check_time = 0;
-
 	wlr_log(WLR_INFO, "screen-edges: initialized (left=%d, right=%d, top=%d, bottom=%d)",
 		edge_triggers.left, edge_triggers.right,
 		edge_triggers.top, edge_triggers.bottom);

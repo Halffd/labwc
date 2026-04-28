@@ -37,6 +37,7 @@
 #include "workspaces.h"
 #include "zoom.h"
 #include "color-invert.h"
+#include "annotation.h"
 
 enum action_arg_type {
 	LAB_ACTION_ARG_STR = 0,
@@ -143,7 +144,9 @@ struct action_arg_list {
 	X(DEBUG_TOGGLE_KEY_STATE_INDICATOR, "DebugToggleKeyStateIndicator") \
 	X(WINDOW_OVERVIEW, "WindowOverview") \
 	X(TOGGLE_WINDOW_INVERT, "ToggleWindowInvert") \
-	X(TOGGLE_MONITOR_INVERT, "ToggleMonitorInvert")
+	X(TOGGLE_MONITOR_INVERT, "ToggleMonitorInvert") \
+	X(ANNOTATION_TOGGLE, "AnnotationToggle") \
+	X(ANNOTATION_CLEAR, "AnnotationClear")
 
 /*
  * Will expand to:
@@ -1618,6 +1621,12 @@ case ACTION_TYPE_TOGGLE_WINDOW_INVERT:
 	break;
 case ACTION_TYPE_TOGGLE_MONITOR_INVERT:
 	invert_toggle_window_monitor();
+	break;
+case ACTION_TYPE_ANNOTATION_TOGGLE:
+	annotation_toggle();
+	break;
+case ACTION_TYPE_ANNOTATION_CLEAR:
+	annotation_clear();
 	break;
 case ACTION_TYPE_INVALID:
 		wlr_log(WLR_ERROR, "Not executing unknown action");

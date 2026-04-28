@@ -1,6 +1,7 @@
 labwc_sources = files(
-  'action.c',
-'buffer.c',
+	'action.c',
+	'annotation.c',
+	'buffer.c',
 'color-invert.c',
 'debug.c',
   'desktop.c',

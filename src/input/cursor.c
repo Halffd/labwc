@@ -6,6 +6,7 @@
 #include <wlr/config.h>
 #include <wlr/types/wlr_cursor.h>
 #include <wlr/types/wlr_cursor_shape_v1.h>
+#include <wlr/types/wlr_keyboard_group.h>
 #include <wlr/types/wlr_data_device.h>
 #include <wlr/types/wlr_layer_shell_v1.h>
 #include <wlr/types/wlr_pointer_constraints_v1.h>
@@ -38,6 +39,7 @@
 #include "ssd.h"
 #include "view.h"
 #include "xwayland.h"
+#include "annotation.h"
 
 #if WLR_HAS_LIBINPUT_BACKEND
 	#include <wlr/backend/libinput.h>
@@ -700,6 +702,17 @@ cursor_process_motion(uint32_t time, double *sx, double *sy)
 	}
 	cursor_context_save(&seat->last_cursor_ctx, &notified_ctx);
 
+	/* Track annotation points when Meta+Ctrl held */
+	if (annotation_is_active()) {
+		struct wlr_keyboard *kb = &seat->keyboard_group->keyboard;
+		uint32_t mods = wlr_keyboard_get_modifiers(kb);
+		if ((mods & (WLR_MODIFIER_LOGO | WLR_MODIFIER_CTRL)) ==
+				(WLR_MODIFIER_LOGO | WLR_MODIFIER_CTRL)) {
+			annotation_add_point((int)seat->cursor->x,
+				(int)seat->cursor->y);
+		}
+	}
+
 	*sx = notified_ctx.sx;
 	*sy = notified_ctx.sy;
 	return notified_ctx.surface;
@@ -1143,6 +1156,22 @@ bool
 cursor_process_button_press(struct seat *seat, uint32_t button, uint32_t time_msec)
 {
 	struct cursor_context ctx = get_cursor_context();
+
+	/* Add annotation point if Meta+Ctrl+LeftClick */
+	if (annotation_is_active() && button == 0x110) {
+		struct wlr_keyboard *kb = &seat->keyboard_group->keyboard;
+		uint32_t mods = wlr_keyboard_get_modifiers(kb);
+		if ((mods & (WLR_MODIFIER_LOGO | WLR_MODIFIER_CTRL)) ==
+				(WLR_MODIFIER_LOGO | WLR_MODIFIER_CTRL)) {
+			annotation_add_point((int)seat->cursor->x,
+				(int)seat->cursor->y);
+			struct output *output = output_nearest_to_cursor();
+			if (output) {
+				wlr_output_schedule_frame(output->wlr_output);
+			}
+			return false;
+		}
+	}
 
 	/* Used on next button release to check if it can close menu or select menu item */
 	press_msec = time_msec;

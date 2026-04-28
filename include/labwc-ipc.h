@@ -42,6 +42,11 @@ enum labwc_ipc_command {
 	/* Screen edge commands (51-60) */
 	LABWC_IPC_EDGE_GET_TRIGGERS = 51,
 	LABWC_IPC_EDGE_SET_TRIGGERS = 52,
+
+	/* Color invert commands (61-70) */
+	LABWC_IPC_INVERT_WINDOW = 61,
+	LABWC_IPC_INVERT_MONITOR = 62,
+	LABWC_IPC_INVERT_GET = 63,
 };
 
 struct labwc_ipc_message {

@@ -42,6 +42,8 @@ struct output {
 	/* Zoom state */
 	bool zoom_enabled;
 	double zoom_scale;
+	/* Color inversion state */
+	bool inverted;
 };
 
 #undef LAB_NR_LAYERS

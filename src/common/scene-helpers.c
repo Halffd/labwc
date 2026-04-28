@@ -9,6 +9,7 @@
 #include "magnifier.h"
 #include "output.h"
 #include "zoom.h"
+#include "color-invert.h"
 
 struct wlr_surface *
 lab_wlr_surface_from_node(struct wlr_scene_node *node)
@@ -135,6 +136,9 @@ lab_wlr_scene_output_commit(struct wlr_scene_output *scene_output,
 	}
 	if (state->buffer && !wants_magnification && output->zoom_enabled) {
 		zoom_draw(output, state->buffer, &additional_damage);
+	}
+	if (state->buffer && output->inverted) {
+		output_invert(output, state->buffer, &additional_damage);
 	}
 
 	bool committed = wlr_output_commit_state(wlr_output, state);

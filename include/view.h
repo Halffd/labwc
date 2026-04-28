@@ -189,6 +189,9 @@ struct view {
 	bool fullscreen;
 	bool tearing_hint;
 	enum lab_tristate force_tearing;
+	/* Color inversion state */
+	bool inverted;
+	enum lab_tristate force_inverted;
 	enum view_layer layer;
 	bool visible_on_all_workspaces;
 	enum lab_edge tiled;

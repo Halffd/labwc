@@ -9,6 +9,7 @@
 #include "screen-edges.h"
 #include "view.h"
 #include "zoom.h"
+#include "color-invert.h"
 #include <assert.h>
 #include <cairo/cairo.h>
 #include <errno.h>
@@ -564,22 +565,54 @@ ipc_handle_client(int client_fd)
 			left ? 1 : 0, right ? 1 : 0, top ? 1 : 0, bottom ? 1 : 0);
 		break;
 	}
-	case LABWC_IPC_EDGE_SET_TRIGGERS: {
-		if (payload) {
-			int left = 0, right = 0, top = 0, bottom = 0;
-			if (sscanf(payload, "%d,%d,%d,%d", &left, &right, &top, &bottom) == 4) {
-				screen_edges_set_triggers(left != 0, right != 0, top != 0, bottom != 0);
-				snprintf(response, sizeof(response), "OK");
-			} else {
-				snprintf(response, sizeof(response), "ERROR: invalid format (l,r,t,b)");
-			}
+case LABWC_IPC_EDGE_SET_TRIGGERS: {
+	if (payload) {
+		int left = 0, right = 0, top = 0, bottom = 0;
+		if (sscanf(payload, "%d,%d,%d,%d", &left, &right, &top, &bottom) == 4) {
+			screen_edges_set_triggers(left != 0, right != 0, top != 0, bottom != 0);
+			snprintf(response, sizeof(response), "OK");
 		} else {
-			snprintf(response, sizeof(response), "ERROR: no payload");
+			snprintf(response, sizeof(response), "ERROR: invalid format (l,r,t,b)");
 		}
-		break;
+	} else {
+		snprintf(response, sizeof(response), "ERROR: no payload");
 	}
+	break;
+}
 
-	default:
+case LABWC_IPC_INVERT_WINDOW: {
+	struct view *view = server.active_view;
+	if (view) {
+		invert_toggle_window(view);
+		snprintf(response, sizeof(response), "OK:%d", view->inverted ? 1 : 0);
+	} else {
+		snprintf(response, sizeof(response), "ERROR: no active view");
+	}
+	break;
+}
+case LABWC_IPC_INVERT_MONITOR: {
+	invert_toggle_window_monitor();
+	struct view *view = server.active_view;
+	if (view) {
+		snprintf(response, sizeof(response), "OK:%d", view->inverted ? 1 : 0);
+	} else {
+		snprintf(response, sizeof(response), "OK:%d", monitor_is_inverted() ? 1 : 0);
+	}
+	break;
+}
+case LABWC_IPC_INVERT_GET: {
+	struct view *view = server.active_view;
+	if (view) {
+		snprintf(response, sizeof(response), "%d,%d",
+			window_is_inverted(view) ? 1 : 0,
+			monitor_is_inverted() ? 1 : 0);
+	} else {
+		snprintf(response, sizeof(response), "0,%d", monitor_is_inverted() ? 1 : 0);
+	}
+	break;
+}
+
+default:
 		snprintf(response, sizeof(response), "ERROR: unknown command %u", msg.command);
 		break;
 	}

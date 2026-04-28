@@ -47,6 +47,10 @@ enum labwc_ipc_command {
 	LABWC_IPC_INVERT_WINDOW = 61,
 	LABWC_IPC_INVERT_MONITOR = 62,
 	LABWC_IPC_INVERT_GET = 63,
+
+	/* XWayland commands (71-80) */
+	LABWC_IPC_XWAYLAND_STATUS = 71,
+	LABWC_IPC_XWAYLAND_RESTART = 72,
 };
 
 struct labwc_ipc_message {

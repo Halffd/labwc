@@ -88,6 +88,9 @@ enum labwc_ipc_command {
 	LABWC_IPC_INVERT_WINDOW = 61,
 	LABWC_IPC_INVERT_MONITOR = 62,
 	LABWC_IPC_INVERT_GET = 63,
+
+	LABWC_IPC_XWAYLAND_STATUS = 71,
+	LABWC_IPC_XWAYLAND_RESTART = 72,
 };
 
 static void
@@ -124,10 +127,13 @@ usage(const char *argv0)
 	fprintf(stderr, "Screen edge commands:\n");
 	fprintf(stderr, "  %s edge get\n", argv0);
 	fprintf(stderr, "  %s edge set <l>,<r>,<t>,<b>\n\n", argv0);
-	fprintf(stderr, "Invert commands:\n");
-	fprintf(stderr, "  %s invert window\n", argv0);
-	fprintf(stderr, "  %s invert monitor\n", argv0);
-	fprintf(stderr, "  %s invert get\n", argv0);
+fprintf(stderr, "Invert commands:\n");
+	fprintf(stderr, " %s invert window\n", argv0);
+	fprintf(stderr, " %s invert monitor\n", argv0);
+	fprintf(stderr, " %s invert get\n\n", argv0);
+	fprintf(stderr, "XWayland commands:\n");
+	fprintf(stderr, " %s xwayland status\n", argv0);
+	fprintf(stderr, " %s xwayland restart\n", argv0);
 }
 
 static int
@@ -387,6 +393,21 @@ main(int argc, char *argv[])
 			send_command(fd, LABWC_IPC_INVERT_MONITOR, NULL, 0);
 		} else if (strcmp(subcmd, "get") == 0) {
 			send_command(fd, LABWC_IPC_INVERT_GET, NULL, 0);
+		} else {
+			usage(argv[0]);
+			ret = 1;
+			goto done;
+		}
+	} else if (strcmp(cmd, "xwayland") == 0) {
+		if (!subcmd) {
+			usage(argv[0]);
+			ret = 1;
+			goto done;
+		}
+		if (strcmp(subcmd, "status") == 0) {
+			send_command(fd, LABWC_IPC_XWAYLAND_STATUS, NULL, 0);
+		} else if (strcmp(subcmd, "restart") == 0) {
+			send_command(fd, LABWC_IPC_XWAYLAND_RESTART, NULL, 0);
 		} else {
 			usage(argv[0]);
 			ret = 1;

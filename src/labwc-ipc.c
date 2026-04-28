@@ -10,6 +10,9 @@
 #include "view.h"
 #include "zoom.h"
 #include "color-invert.h"
+#if HAVE_XWAYLAND
+#include "xwayland.h"
+#endif
 #include <assert.h>
 #include <cairo/cairo.h>
 #include <errno.h>
@@ -611,6 +614,32 @@ case LABWC_IPC_INVERT_GET: {
 	}
 	break;
 }
+
+#if HAVE_XWAYLAND
+case LABWC_IPC_XWAYLAND_STATUS: {
+	snprintf(response, sizeof(response), "%d", server.xwayland ? 1 : 0);
+	break;
+}
+case LABWC_IPC_XWAYLAND_RESTART: {
+	if (server.xwayland) {
+		xwayland_server_finish();
+		xwayland_server_init(server.compositor);
+		snprintf(response, sizeof(response), "OK: restarted");
+	} else {
+		snprintf(response, sizeof(response), "ERROR: XWayland not enabled");
+	}
+	break;
+}
+#else
+case LABWC_IPC_XWAYLAND_STATUS: {
+	snprintf(response, sizeof(response), "0");
+	break;
+}
+case LABWC_IPC_XWAYLAND_RESTART: {
+	snprintf(response, sizeof(response), "ERROR: XWayland not compiled");
+	break;
+}
+#endif
 
 default:
 		snprintf(response, sizeof(response), "ERROR: unknown command %u", msg.command);

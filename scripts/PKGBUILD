@@ -1,0 +1,75 @@
+# Maintainer: Your Name <your.email@example.com>
+# Contributor: labwc team
+
+pkgname=labwc
+pkgver=0.9.5
+pkgrel=1
+epoch=
+pkgdesc="A lightweight wlroots-based window manager for Wayland"
+url="https://github.com/Halffd/labwc"
+license=('GPL-2.0-only')
+groups=()
+depends=(
+    wlroots>=0.20.0
+    wayland
+    libinput
+    xkbcommon
+    libxml2
+    cairo
+    pango
+    librsvg
+    libdrm
+    gdk-pixbuf
+    pixman
+    freetype2
+    fontconfig
+    libxcb
+)
+makedepends=(
+    meson
+    ninja
+    scdoc
+    wayland-protocols
+    pkgconf
+)
+checkdepends=()
+optdepends=(
+    'libsfdo: desktop entry and icon support'
+    'xwayland: X11 support'
+)
+provides=()
+conflicts=()
+replaces=()
+backup=()
+options=()
+install=
+changelog=
+source=("$pkgname-$pkgver.tar.gz"::"https://github.com/Halffd/labwc/archive/refs/tags/v$pkgver.tar.gz")
+noextract=()
+sha256sums=('SKIP')
+validpgpkeys=()
+
+prepare() {
+    cd "$pkgname-$pkgver"
+    # Apply any patches here
+}
+
+build() {
+    cd "$pkgname-$pkgver"
+    meson setup build \
+        --buildtype=release \
+        --strip \
+        -Dicon=enabled \
+        -Dxwayland=enabled
+    meson compile -C build
+}
+
+check() {
+    cd "$pkgname-$pkgver"
+    meson test -C build --print-errorlogs
+}
+
+package() {
+    cd "$pkgname-$pkgver"
+    meson install -C build --destdir="$pkgdir"
+}

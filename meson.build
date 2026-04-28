@@ -199,12 +199,20 @@ if dep_cmocka.found()
 endif
 
 executable(
-  meson.project_name(),
-  labwc_sources,
-  include_directories: [labwc_inc],
-  dependencies: labwc_deps,
-  install: true,
-  link_args: link_args,
+	meson.project_name(),
+	labwc_sources,
+	include_directories: [labwc_inc],
+	dependencies: labwc_deps,
+	install: true,
+	link_args: link_args,
+)
+
+executable(
+	'labwc-cli',
+	'src/labwc-cli.c',
+	include_directories: [labwc_inc],
+	dependencies: [cairo],
+	install: true,
 )
 
 install_data('data/labwc.desktop', install_dir: get_option('datadir') / 'wayland-sessions')

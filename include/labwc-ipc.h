@@ -51,6 +51,13 @@ enum labwc_ipc_command {
 	/* XWayland commands (71-80) */
 	LABWC_IPC_XWAYLAND_STATUS = 71,
 	LABWC_IPC_XWAYLAND_RESTART = 72,
+
+	/* Workspace commands (81-90) */
+	LABWC_IPC_WORKSPACE_LIST = 81,
+	LABWC_IPC_WORKSPACE_CURRENT = 82,
+	LABWC_IPC_WORKSPACE_SWITCH = 83,
+	LABWC_IPC_WORKSPACE_BACKGROUND = 84,
+	LABWC_IPC_WORKSPACE_RENAME = 85,
 };
 
 struct labwc_ipc_message {

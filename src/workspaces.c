@@ -635,3 +635,23 @@ workspaces_destroy(void)
 	assert(wl_list_empty(&server.workspaces.all));
 	wl_list_remove(&server.workspaces.on_ext_manager.commit.link);
 }
+
+void
+workspaces_next(void)
+{
+	struct workspace *next = get_next_occupied(
+		server.workspaces.current, &server.workspaces.all, /*wrap*/ true);
+	if (next) {
+		workspaces_switch_to(next, /*update_focus*/ true);
+	}
+}
+
+void
+workspaces_prev(void)
+{
+	struct workspace *prev = get_prev_occupied(
+		server.workspaces.current, &server.workspaces.all, /*wrap*/ true);
+	if (prev) {
+		workspaces_switch_to(prev, /*update_focus*/ true);
+	}
+}

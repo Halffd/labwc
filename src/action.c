@@ -146,7 +146,10 @@ struct action_arg_list {
 	X(TOGGLE_WINDOW_INVERT, "ToggleWindowInvert") \
 	X(TOGGLE_MONITOR_INVERT, "ToggleMonitorInvert") \
 	X(ANNOTATION_TOGGLE, "AnnotationToggle") \
-	X(ANNOTATION_CLEAR, "AnnotationClear")
+	X(ANNOTATION_CLEAR, "AnnotationClear") \
+	X(WORKSPACE_OVERVIEW, "WorkspaceOverview") \
+	X(WORKSPACE_NEXT, "WorkspaceNext") \
+	X(WORKSPACE_PREV, "WorkspacePrev")
 
 /*
  * Will expand to:
@@ -1628,6 +1631,25 @@ case ACTION_TYPE_ANNOTATION_TOGGLE:
 case ACTION_TYPE_ANNOTATION_CLEAR:
 	annotation_clear();
 	break;
+case ACTION_TYPE_WORKSPACE_OVERVIEW: {
+	struct output *output = view ? view->output : output_nearest_to_cursor();
+	if (output) {
+		if (overview_is_active()) {
+			overview_finish();
+		} else {
+			overview_init(output);
+		}
+	}
+	break;
+}
+case ACTION_TYPE_WORKSPACE_NEXT: {
+	workspaces_next();
+	break;
+}
+case ACTION_TYPE_WORKSPACE_PREV: {
+	workspaces_prev();
+	break;
+}
 case ACTION_TYPE_INVALID:
 		wlr_log(WLR_ERROR, "Not executing unknown action");
 		break;

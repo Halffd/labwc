@@ -27,5 +27,7 @@ void workspaces_osd_hide(struct seat *seat);
 struct workspace *workspaces_find(struct workspace *anchor, const char *name,
 	bool wrap);
 void workspaces_reconfigure(void);
+void workspaces_next(void);
+void workspaces_prev(void);
 
 #endif /* LABWC_WORKSPACES_H */

@@ -91,6 +91,12 @@ enum labwc_ipc_command {
 
 	LABWC_IPC_XWAYLAND_STATUS = 71,
 	LABWC_IPC_XWAYLAND_RESTART = 72,
+
+	LABWC_IPC_WORKSPACE_LIST = 81,
+	LABWC_IPC_WORKSPACE_CURRENT = 82,
+	LABWC_IPC_WORKSPACE_SWITCH = 83,
+	LABWC_IPC_WORKSPACE_BACKGROUND = 84,
+	LABWC_IPC_WORKSPACE_RENAME = 85,
 };
 
 static void
@@ -133,7 +139,14 @@ fprintf(stderr, "Invert commands:\n");
 	fprintf(stderr, " %s invert get\n\n", argv0);
 	fprintf(stderr, "XWayland commands:\n");
 	fprintf(stderr, " %s xwayland status\n", argv0);
-	fprintf(stderr, " %s xwayland restart\n", argv0);
+	fprintf(stderr, " %s xwayland restart\n\n", argv0);
+	fprintf(stderr, "Workspace commands:\n");
+	fprintf(stderr, " %s workspace list\n", argv0);
+	fprintf(stderr, " %s workspace current\n", argv0);
+	fprintf(stderr, " %s workspace next|prev\n", argv0);
+	fprintf(stderr, " %s workspace switch <name>\n", argv0);
+	fprintf(stderr, " %s workspace back\n", argv0);
+	fprintf(stderr, " %s workspace rename <name>\n", argv0);
 }
 
 static int
@@ -408,6 +421,35 @@ main(int argc, char *argv[])
 			send_command(fd, LABWC_IPC_XWAYLAND_STATUS, NULL, 0);
 		} else if (strcmp(subcmd, "restart") == 0) {
 			send_command(fd, LABWC_IPC_XWAYLAND_RESTART, NULL, 0);
+		} else {
+			usage(argv[0]);
+			ret = 1;
+			goto done;
+		}
+	} else if (strcmp(cmd, "workspace") == 0) {
+		if (!subcmd) {
+			usage(argv[0]);
+			ret = 1;
+			goto done;
+		}
+		if (strcmp(subcmd, "list") == 0) {
+			send_command(fd, LABWC_IPC_WORKSPACE_LIST, NULL, 0);
+		} else if (strcmp(subcmd, "current") == 0) {
+			send_command(fd, LABWC_IPC_WORKSPACE_CURRENT, NULL, 0);
+		} else if (strcmp(subcmd, "next") == 0) {
+			send_command(fd, LABWC_IPC_WORKSPACE_SWITCH, "next", 4);
+		} else if (strcmp(subcmd, "prev") == 0) {
+			send_command(fd, LABWC_IPC_WORKSPACE_SWITCH, "prev", 4);
+		} else if (strcmp(subcmd, "back") == 0) {
+			send_command(fd, LABWC_IPC_WORKSPACE_BACKGROUND, "last", 4);
+		} else if (argc < 4) {
+			usage(argv[0]);
+			ret = 1;
+			goto done;
+		} else if (strcmp(subcmd, "switch") == 0) {
+			send_command(fd, LABWC_IPC_WORKSPACE_SWITCH, argv[3], strlen(argv[3]));
+		} else if (strcmp(subcmd, "rename") == 0) {
+			send_command(fd, LABWC_IPC_WORKSPACE_RENAME, argv[3], strlen(argv[3]));
 		} else {
 			usage(argv[0]);
 			ret = 1;

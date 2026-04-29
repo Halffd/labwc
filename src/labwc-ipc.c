@@ -2,6 +2,7 @@
 
 #include "labwc-ipc.h"
 #include "common/macros.h"
+#include "common/mem.h"
 #include "common/string-helpers.h"
 #include "labwc.h"
 #include "output.h"
@@ -10,6 +11,7 @@
 #include "view.h"
 #include "zoom.h"
 #include "color-invert.h"
+#include "workspaces.h"
 #if HAVE_XWAYLAND
 #include "xwayland.h"
 #endif
@@ -27,6 +29,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <wlr/render/allocator.h>
+#include <wlr/types/wlr_ext_workspace_v1.h>
 #include <wlr/render/swapchain.h>
 #include <wlr/types/wlr_buffer.h>
 #include <wlr/types/wlr_output_layout.h>
@@ -640,6 +643,75 @@ case LABWC_IPC_XWAYLAND_RESTART: {
 	break;
 }
 #endif
+
+/* Workspace commands */
+case LABWC_IPC_WORKSPACE_LIST: {
+	char *p = response;
+	size_t left = sizeof(response);
+	struct workspace *workspace;
+	wl_list_for_each(workspace, &server.workspaces.all, link) {
+		int len = snprintf(p, left, "%s%s",
+			workspace == server.workspaces.current ? "*" : "",
+			workspace->name);
+		p += len;
+		left -= len;
+		if (left <= 0) {
+			break;
+		}
+		if (workspace->link.next != &server.workspaces.all) {
+			len = snprintf(p, left, ",");
+			p += len;
+			left -= len;
+		}
+	}
+	break;
+}
+case LABWC_IPC_WORKSPACE_CURRENT: {
+	struct workspace *ws = server.workspaces.current;
+	snprintf(response, sizeof(response), "%s", ws ? ws->name : "");
+	break;
+}
+case LABWC_IPC_WORKSPACE_SWITCH: {
+	if (payload) {
+		struct workspace *target = workspaces_find(
+			server.workspaces.current, payload, /*wrap*/ true);
+		if (target) {
+			workspaces_switch_to(target, /*update_focus*/ true);
+			snprintf(response, sizeof(response), "OK:%s", target->name);
+		} else {
+			snprintf(response, sizeof(response), "ERROR: workspace not found");
+		}
+	} else {
+		snprintf(response, sizeof(response), "ERROR: no workspace name");
+	}
+	break;
+}
+case LABWC_IPC_WORKSPACE_BACKGROUND: {
+	struct workspace *target = workspaces_find(
+		server.workspaces.current, payload, /*wrap*/ true);
+	if (target) {
+		workspaces_switch_to(target, /*update_focus*/ false);
+		snprintf(response, sizeof(response), "OK:%s", target->name);
+	} else {
+		snprintf(response, sizeof(response), "ERROR: workspace not found");
+	}
+	break;
+}
+case LABWC_IPC_WORKSPACE_RENAME: {
+	if (payload && strlen(payload) > 0) {
+		struct workspace *ws = server.workspaces.current;
+		if (ws) {
+			xstrdup_replace(ws->name, payload);
+			wlr_ext_workspace_handle_v1_set_name(ws->ext_workspace, ws->name);
+			snprintf(response, sizeof(response), "OK:%s", ws->name);
+		} else {
+			snprintf(response, sizeof(response), "ERROR: no current workspace");
+		}
+	} else {
+		snprintf(response, sizeof(response), "ERROR: no name");
+	}
+	break;
+}
 
 default:
 		snprintf(response, sizeof(response), "ERROR: unknown command %u", msg.command);

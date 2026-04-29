@@ -20,12 +20,20 @@
 #include "scaled-buffer/scaled-icon-buffer.h"
 #include "theme.h"
 #include "view.h"
+#include "workspaces.h"
 
 #define OVERVIEW_ITEM_WIDTH 500
 #define OVERVIEW_ITEM_HEIGHT 320
 
 struct overview_item {
-	struct view *view;
+	union {
+		struct view *view;
+		struct workspace *workspace;
+	};
+	enum {
+		OVERVIEW_ITEM_TYPE_VIEW = 0,
+		OVERVIEW_ITEM_TYPE_WORKSPACE,
+	} type;
 	struct wlr_scene_tree *tree;
 	struct lab_scene_rect *active_bg;
 	struct scaled_font_buffer *normal_label;
@@ -82,6 +90,133 @@ render_node(struct wlr_render_pass *pass, struct wlr_scene_node *node, int x, in
 }
 
 static struct wlr_buffer *
+render_workspace_thumb(struct output *output, struct workspace *workspace)
+{
+	struct wlr_box box = {0, 0, OVERVIEW_ITEM_WIDTH - 40, OVERVIEW_ITEM_HEIGHT - 80};
+
+	struct view *view;
+	int count = 0;
+	struct view *views[16];
+	for_each_view(view, &server.views, LAB_VIEW_CRITERIA_CURRENT_WORKSPACE) {
+		if (view->workspace == workspace && count < 16) {
+			views[count++] = view;
+		}
+	}
+	if (count == 0) {
+		return NULL;
+	}
+
+	struct wlr_buffer *buffer = wlr_allocator_create_buffer(server.allocator,
+		box.width, box.height, &output->wlr_output->swapchain->format);
+	if (!buffer) {
+		wlr_log(WLR_ERROR, "failed to allocate buffer for workspace thumb");
+		return NULL;
+	}
+
+	struct wlr_render_pass *pass = wlr_renderer_begin_buffer_pass(
+		server.renderer, buffer, NULL);
+	if (!pass) {
+		wlr_buffer_drop(buffer);
+		return NULL;
+	}
+
+	int tile_w = box.width / 2;
+	int tile_h = box.height / 2;
+	int idx = 0;
+	for (int i = 0; i < 2 && idx < count; i++) {
+		for (int j = 0; j < 2 && idx < count; j++) {
+			struct view *v = views[idx++];
+			if (!v->content_tree) {
+				continue;
+			}
+			int x = i * tile_w;
+			int y = j * tile_h;
+			int w = tile_w - 4;
+			int h = tile_h - 4;
+			render_node(pass, &v->content_tree->node, x + 2, y + 2);
+		}
+	}
+
+	if (!wlr_render_pass_submit(pass)) {
+		wlr_log(WLR_ERROR, "failed to submit workspace render pass");
+		wlr_buffer_drop(buffer);
+		return NULL;
+	}
+	return buffer;
+}
+
+static struct overview_item *
+create_workspace_item(struct wlr_scene_tree *parent, struct workspace *workspace,
+	struct output *output, struct window_switcher_thumbnail_theme *switcher_theme)
+{
+	struct theme *theme = rc.theme;
+	int padding = theme->border_width + switcher_theme->item_padding;
+	int title_height = switcher_theme->title_height;
+	int title_y = OVERVIEW_ITEM_HEIGHT - padding - title_height;
+	struct wlr_box thumb_bounds = {
+		.x = padding,
+		.y = padding,
+		.width = OVERVIEW_ITEM_WIDTH - 2 * padding,
+		.height = title_y - 2 * padding,
+	};
+
+	struct overview_item *item = znew(*item);
+	wl_list_init(&item->link);
+	item->type = OVERVIEW_ITEM_TYPE_WORKSPACE;
+	item->workspace = workspace;
+
+	struct wlr_scene_tree *tree = lab_wlr_scene_tree_create(parent);
+	node_descriptor_create(&tree->node, LAB_NODE_CYCLE_OSD_ITEM, NULL, item);
+	item->tree = tree;
+
+	struct lab_scene_rect_options opts = {
+		.border_colors = (float *[1]) { switcher_theme->item_active_border_color },
+		.nr_borders = 1,
+		.border_width = switcher_theme->item_active_border_width,
+		.bg_color = switcher_theme->item_active_bg_color,
+		.width = OVERVIEW_ITEM_WIDTH,
+		.height = OVERVIEW_ITEM_HEIGHT,
+	};
+	item->active_bg = lab_scene_rect_create(tree, &opts);
+
+	lab_wlr_scene_rect_create(tree, OVERVIEW_ITEM_WIDTH,
+		OVERVIEW_ITEM_HEIGHT, (float[4]){0});
+
+	struct wlr_buffer *thumb_buffer = render_workspace_thumb(output, workspace);
+	if (thumb_buffer) {
+		item->thumb_buffer = lab_wlr_scene_buffer_create(tree, thumb_buffer);
+		wlr_buffer_drop(thumb_buffer);
+		struct wlr_box thumb_box = box_fit_within(
+			thumb_buffer->width, thumb_buffer->height, &thumb_bounds);
+		wlr_scene_buffer_set_dest_size(item->thumb_buffer,
+			thumb_box.width, thumb_box.height);
+		wlr_scene_node_set_position(&item->thumb_buffer->node,
+			thumb_box.x, thumb_box.y);
+	}
+
+	struct buf buf = BUF_INIT;
+	buf_add(&buf, workspace->name);
+
+	item->normal_label = scaled_font_buffer_create(tree);
+	scaled_font_buffer_update(item->normal_label, buf.data,
+		OVERVIEW_ITEM_WIDTH - 2 * padding,
+		&rc.font_osd, theme->osd_label_text_color, theme->osd_bg_color);
+	wlr_scene_node_set_position(&item->normal_label->scene_buffer->node,
+		(OVERVIEW_ITEM_WIDTH - item->normal_label->width) / 2, title_y);
+
+	item->active_label = scaled_font_buffer_create(tree);
+	scaled_font_buffer_update(item->active_label, buf.data,
+		OVERVIEW_ITEM_WIDTH - 2 * padding,
+		&rc.font_osd, theme->osd_label_text_color,
+		switcher_theme->item_active_bg_color);
+	wlr_scene_node_set_position(&item->active_label->scene_buffer->node,
+		(OVERVIEW_ITEM_WIDTH - item->active_label->width) / 2, title_y);
+
+	buf_reset(&buf);
+	return item;
+}
+
+static struct wlr_buffer *
 render_thumb(struct output *output, struct view *view)
 {
 	if (!view->content_tree) {
@@ -126,6 +261,7 @@ create_overview_item(struct wlr_scene_tree *parent, struct view *view,
 
 	struct overview_item *item = znew(*item);
 	wl_list_init(&item->link);
+	item->type = OVERVIEW_ITEM_TYPE_VIEW;
 	item->view = view;
 	item->thumb_bounds = thumb_bounds;
 
@@ -261,7 +397,20 @@ static struct overview_osd *overview_osd;
 static void
 overview_item_select(struct overview_item *item)
 {
-	if (!item || !item->view) {
+	if (!item) {
+		return;
+	}
+
+	if (item->type == OVERVIEW_ITEM_TYPE_WORKSPACE) {
+		struct workspace *workspace = item->workspace;
+		overview_finish();
+		if (workspace) {
+			workspaces_switch_to(workspace, /*update_focus*/ true);
+		}
+		return;
+	}
+
+	if (!item->view) {
 		return;
 	}
 	struct view *view = item->view;
@@ -355,6 +504,86 @@ int items_height = OVERVIEW_ITEM_HEIGHT * nr_visible_rows;
 	wlr_scene_node_set_position(&overview_osd->tree->node, lx, ly);
 
 	/* Enter cycle input mode */
+	seat_focus_override_begin(&server.seat, LAB_INPUT_STATE_CYCLE, LAB_CURSOR_DEFAULT);
+	server.cycle.selected_view = NULL;
+
+	cursor_update_focus();
+}
+
+void
+workspace_overview_init(struct output *output)
+{
+	if (server.input_mode == LAB_INPUT_STATE_CYCLE) {
+		cycle_finish(/*switch_focus*/ false);
+	}
+
+	struct theme *theme = rc.theme;
+	struct window_switcher_thumbnail_theme *switcher_theme =
+		&theme->osd_window_switcher_thumbnail;
+	int padding = theme->border_width + switcher_theme->padding;
+
+	int nr_workspaces = 0;
+	struct workspace *workspace;
+	wl_list_for_each(workspace, &server.workspaces.all, link) {
+		nr_workspaces++;
+	}
+	if (nr_workspaces == 0) {
+		wlr_log(WLR_DEBUG, "no workspaces for workspace overview");
+		return;
+	}
+
+	overview_osd = znew(*overview_osd);
+	overview_osd->output = output;
+	wl_list_init(&overview_osd->items);
+
+	overview_osd->tree = lab_wlr_scene_tree_create(output->cycle_osd_tree);
+	overview_osd->items_tree = lab_wlr_scene_tree_create(overview_osd->tree);
+
+	overview_osd->tree_destroy.notify = overview_tree_destroy;
+	wl_signal_add(&overview_osd->tree->node.events.destroy,
+		&overview_osd->tree_destroy);
+
+	int nr_cols, nr_rows, nr_visible_rows;
+	get_overview_geometry(output, nr_workspaces, &nr_cols, &nr_rows, &nr_visible_rows);
+	overview_osd->nr_cols = nr_cols;
+	overview_osd->nr_rows = nr_rows;
+
+	int index = 0;
+	struct workspace *ws;
+	wl_list_for_each(ws, &server.workspaces.all, link) {
+		struct overview_item *item = create_workspace_item(
+			overview_osd->items_tree, ws, output, switcher_theme);
+		if (!item) {
+			continue;
+		}
+		wl_list_append(&overview_osd->items, &item->link);
+
+		int x = (index % nr_cols) * OVERVIEW_ITEM_WIDTH + padding;
+		int y = (index / nr_cols) * OVERVIEW_ITEM_HEIGHT + padding;
+		wlr_scene_node_set_position(&item->tree->node, x, y);
+		index++;
+	}
+
+	int items_width = OVERVIEW_ITEM_WIDTH * nr_cols;
+	int items_height = OVERVIEW_ITEM_HEIGHT * nr_visible_rows;
+
+	struct lab_scene_rect_options bg_opts = {
+		.border_colors = (float *[1]) { theme->osd_border_color },
+		.nr_borders = 1,
+		.border_width = theme->osd_border_width,
+		.bg_color = theme->osd_bg_color,
+		.width = items_width + 2 * padding,
+		.height = items_height + 2 * padding,
+	};
+	struct lab_scene_rect *bg = lab_scene_rect_create(overview_osd->tree, &bg_opts);
+	wlr_scene_node_lower_to_bottom(&bg->tree->node);
+
+	struct wlr_box output_box;
+	wlr_output_layout_get_box(server.output_layout, output->wlr_output, &output_box);
+	int lx = output_box.x + (output_box.width - bg_opts.width) / 2;
+	int ly = output_box.y + (output_box.height - bg_opts.height) / 2;
+	wlr_scene_node_set_position(&overview_osd->tree->node, lx, ly);
+
 	seat_focus_override_begin(&server.seat, LAB_INPUT_STATE_CYCLE, LAB_CURSOR_DEFAULT);
 	server.cycle.selected_view = NULL;
 

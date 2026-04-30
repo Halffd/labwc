@@ -667,6 +667,161 @@ read_resize_toml(toml_table_t *table)
 	}
 }
 
+static void
+read_margin_toml(toml_table_t *table)
+{
+	toml_table_t *margin = toml_table_in(table, "margin");
+	if (!margin) {
+		return;
+	}
+
+	toml_datum_t top = toml_int_in(margin, "top");
+	if (top.ok) {
+		/* Find first usable_area_override and update its top margin */
+		struct usable_area_override *override;
+		wl_list_for_each(override, &rc.usable_area_overrides, link) {
+			if (!override->output) {
+				override->margin.top = (int)top.u.i;
+				break;
+			}
+		}
+	}
+
+	toml_datum_t bottom = toml_int_in(margin, "bottom");
+	if (bottom.ok) {
+		struct usable_area_override *override;
+		wl_list_for_each(override, &rc.usable_area_overrides, link) {
+			if (!override->output) {
+				override->margin.bottom = (int)bottom.u.i;
+				break;
+			}
+		}
+	}
+
+	toml_datum_t left = toml_int_in(margin, "left");
+	if (left.ok) {
+		struct usable_area_override *override;
+		wl_list_for_each(override, &rc.usable_area_overrides, link) {
+			if (!override->output) {
+				override->margin.left = (int)left.u.i;
+				break;
+			}
+		}
+	}
+
+	toml_datum_t right = toml_int_in(margin, "right");
+	if (right.ok) {
+		struct usable_area_override *override;
+		wl_list_for_each(override, &rc.usable_area_overrides, link) {
+			if (!override->output) {
+				override->margin.right = (int)right.u.i;
+				break;
+			}
+		}
+	}
+
+	toml_datum_t output = toml_string_in(margin, "output");
+	if (output.ok) {
+		struct usable_area_override *override = znew(*override);
+		override->output = xstrdup(output.u.s);
+		wl_list_append(&rc.usable_area_overrides, &override->link);
+		free(output.u.s);
+	}
+}
+
+static void
+read_desktops_toml(toml_table_t *table)
+{
+	toml_table_t *desktops = toml_table_in(table, "desktops");
+	if (!desktops) {
+		return;
+	}
+
+	toml_datum_t popup_time = toml_int_in(desktops, "popupTime");
+	if (popup_time.ok) {
+		rc.workspace_config.popuptime = (int)popup_time.u.i;
+	}
+
+	toml_datum_t prefix = toml_string_in(desktops, "prefix");
+	if (prefix.ok) {
+		xstrdup_replace(rc.workspace_config.prefix, prefix.u.s);
+		free(prefix.u.s);
+	}
+
+	toml_datum_t initial = toml_string_in(desktops, "initial");
+	if (initial.ok) {
+		xstrdup_replace(rc.workspace_config.initial_workspace_name, initial.u.s);
+		free(initial.u.s);
+	}
+
+	toml_array_t *workspace_list = toml_array_in(desktops, "workspace");
+	if (workspace_list) {
+		int nelem = toml_array_nelem(workspace_list);
+		for (int i = 0; i < nelem; i++) {
+			toml_datum_t name = toml_string_at(workspace_list, i);
+			if (name.ok) {
+				struct workspace_config *ws = znew(*ws);
+				ws->name = xstrdup(name.u.s);
+				wl_list_append(&rc.workspace_config.workspaces, &ws->link);
+				free(name.u.s);
+			}
+		}
+	}
+}
+
+static void
+read_menu_toml(toml_table_t *table)
+{
+	toml_table_t *menu = toml_table_in(table, "menu");
+	if (!menu) {
+		return;
+	}
+
+	toml_datum_t ignore_period = toml_int_in(menu, "ignoreButtonReleasePeriod");
+	if (ignore_period.ok) {
+		rc.menu_ignore_button_release_period = (unsigned int)ignore_period.u.i;
+	}
+
+	toml_datum_t show_icons = toml_bool_in(menu, "showIcons");
+	if (show_icons.ok) {
+		rc.menu_show_icons = show_icons.u.b;
+	}
+}
+
+static void
+read_magnifier_toml(toml_table_t *table)
+{
+	toml_table_t *magnifier = toml_table_in(table, "magnifier");
+	if (!magnifier) {
+		return;
+	}
+
+	toml_datum_t width = toml_int_in(magnifier, "width");
+	if (width.ok) {
+		rc.mag_width = (int)width.u.i;
+	}
+
+	toml_datum_t height = toml_int_in(magnifier, "height");
+	if (height.ok) {
+		rc.mag_height = (int)height.u.i;
+	}
+
+	toml_datum_t init_scale = toml_double_in(magnifier, "initScale");
+	if (init_scale.ok) {
+		rc.mag_scale = (float)init_scale.u.d;
+	}
+
+	toml_datum_t increment = toml_double_in(magnifier, "increment");
+	if (increment.ok) {
+		rc.mag_increment = (float)increment.u.d;
+	}
+
+	toml_datum_t use_filter = toml_bool_in(magnifier, "useFilter");
+	if (use_filter.ok) {
+		rc.mag_filter = use_filter.u.b;
+	}
+}
+
 void
 toml_read_config(const char *filename)
 {
@@ -698,6 +853,10 @@ toml_read_config(const char *filename)
 	read_libinput_toml(toml_root);
 	read_snapping_toml(toml_root);
 	read_resize_toml(toml_root);
+	read_margin_toml(toml_root);
+	read_desktops_toml(toml_root);
+	read_menu_toml(toml_root);
+	read_magnifier_toml(toml_root);
 
 	wlr_log(WLR_INFO, "TOML config parsing completed");
 }

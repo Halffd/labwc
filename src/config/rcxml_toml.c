@@ -573,6 +573,100 @@ read_mouse_toml(toml_table_t *table)
 	}
 }
 
+static void
+read_snapping_toml(toml_table_t *table)
+{
+	toml_table_t *snapping = toml_table_in(table, "snapping");
+	if (!snapping) {
+		return;
+	}
+
+	toml_datum_t inner_range = toml_int_in(snapping, "innerRange");
+	if (inner_range.ok) {
+		rc.snap_edge_range_inner = (int)inner_range.u.i;
+	}
+
+	toml_datum_t outer_range = toml_int_in(snapping, "outerRange");
+	if (outer_range.ok) {
+		rc.snap_edge_range_outer = (int)outer_range.u.i;
+	}
+
+	toml_datum_t corner_range = toml_int_in(snapping, "cornerRange");
+	if (corner_range.ok) {
+		rc.snap_edge_corner_range = (int)corner_range.u.i;
+	}
+
+	toml_datum_t overlay = toml_bool_in(snapping, "overlay");
+	if (overlay.ok) {
+		rc.snap_overlay_enabled = overlay.u.b;
+	}
+
+	toml_datum_t inner_delay = toml_int_in(snapping, "innerDelay");
+	if (inner_delay.ok) {
+		rc.snap_overlay_delay_inner = (int)inner_delay.u.i;
+	}
+
+	toml_datum_t outer_delay = toml_int_in(snapping, "outerDelay");
+	if (outer_delay.ok) {
+		rc.snap_overlay_delay_outer = (int)outer_delay.u.i;
+	}
+
+	toml_datum_t top_maximize = toml_bool_in(snapping, "topMaximize");
+	if (top_maximize.ok) {
+		rc.snap_top_maximize = top_maximize.u.b;
+	}
+
+	toml_datum_t tiling_events = toml_string_in(snapping, "tilingEvents");
+	if (tiling_events.ok) {
+		if (!strcasecmp(tiling_events.u.s, "always")) {
+			rc.snap_tiling_events_mode = LAB_TILING_EVENTS_ALWAYS;
+		} else if (!strcasecmp(tiling_events.u.s, "region")) {
+			rc.snap_tiling_events_mode = LAB_TILING_EVENTS_REGION;
+		} else if (!strcasecmp(tiling_events.u.s, "edge")) {
+			rc.snap_tiling_events_mode = LAB_TILING_EVENTS_EDGE;
+		} else {
+			rc.snap_tiling_events_mode = LAB_TILING_EVENTS_NEVER;
+		}
+		free(tiling_events.u.s);
+	}
+}
+
+static void
+read_resize_toml(toml_table_t *table)
+{
+	toml_table_t *resize = toml_table_in(table, "resize");
+	if (!resize) {
+		return;
+	}
+
+	toml_datum_t popup_show = toml_string_in(resize, "popupShow");
+	if (popup_show.ok) {
+		if (!strcasecmp(popup_show.u.s, "always")) {
+			rc.resize_indicator = LAB_RESIZE_INDICATOR_ALWAYS;
+		} else if (!strcasecmp(popup_show.u.s, "non-pixel")) {
+			rc.resize_indicator = LAB_RESIZE_INDICATOR_NON_PIXEL;
+		} else {
+			rc.resize_indicator = LAB_RESIZE_INDICATOR_NEVER;
+		}
+		free(popup_show.u.s);
+	}
+
+	toml_datum_t draw_contents = toml_bool_in(resize, "drawContents");
+	if (draw_contents.ok) {
+		rc.resize_draw_contents = draw_contents.u.b;
+	}
+
+	toml_datum_t corner_range = toml_int_in(resize, "cornerRange");
+	if (corner_range.ok) {
+		rc.resize_corner_range = (int)corner_range.u.i;
+	}
+
+	toml_datum_t minimum_area = toml_int_in(resize, "minimumArea");
+	if (minimum_area.ok) {
+		rc.resize_minimum_area = (int)minimum_area.u.i;
+	}
+}
+
 void
 toml_read_config(const char *filename)
 {
@@ -602,6 +696,8 @@ toml_read_config(const char *filename)
 	read_window_switcher_toml(toml_root);
 	read_window_rules_toml(toml_root);
 	read_libinput_toml(toml_root);
+	read_snapping_toml(toml_root);
+	read_resize_toml(toml_root);
 
 	wlr_log(WLR_INFO, "TOML config parsing completed");
 }

@@ -7,8 +7,10 @@
 #include <string.h>
 #include <wlr/types/wlr_keyboard_group.h>
 #include <wlr/util/log.h>
+#include "action.h"
 #include "common/list.h"
 #include "common/mem.h"
+#include "common/toml.h"
 #include "config/rcxml.h"
 #include "labwc.h"
 
@@ -219,4 +221,39 @@ keybind_destroy(struct keybind *keybind)
 
 	zfree(keybind->keysyms);
 	zfree(keybind);
+}
+
+void
+fill_keybind_toml(const char *key, toml_table_t *table)
+{
+	struct keybind *keybind = keybind_create(key);
+	if (!keybind) {
+		wlr_log(WLR_ERROR, "Invalid keybind: %s", key);
+		return;
+	}
+
+	toml_datum_t on_release = toml_bool_in(table, "onRelease");
+	if (on_release.ok) {
+		keybind->on_release = on_release.u.b;
+	}
+
+	toml_datum_t layout_dep = toml_bool_in(table, "layoutDependent");
+	if (layout_dep.ok) {
+		keybind->use_syms_only = layout_dep.u.b;
+	}
+
+	toml_datum_t allow_locked = toml_bool_in(table, "allowWhenLocked");
+	if (allow_locked.ok) {
+		keybind->allow_when_locked = allow_locked.u.b;
+	}
+
+	toml_datum_t override_inhibit = toml_bool_in(table, "overrideInhibition");
+	if (override_inhibit.ok) {
+		keybind->override_inhibition = override_inhibit.u.b;
+	}
+
+	toml_array_t *actions = toml_array_in(table, "actions");
+	if (actions) {
+		append_parsed_actions_toml(actions, &keybind->actions);
+	}
 }

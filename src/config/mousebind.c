@@ -5,8 +5,10 @@
 #include <linux/input-event-codes.h>
 #include <strings.h>
 #include <wlr/util/log.h>
+#include "action.h"
 #include "common/list.h"
 #include "common/mem.h"
+#include "common/toml.h"
 #include "config/keybind.h"
 #include "config/rcxml.h"
 
@@ -128,4 +130,42 @@ mousebind_create(const char *context)
 	}
 	wl_list_init(&m->actions);
 	return m;
+}
+
+void
+fill_mouse_context_toml(const char *name, toml_table_t *table)
+{
+	struct mousebind *mousebind = mousebind_create(name);
+	if (!mousebind) {
+		return;
+	}
+
+	toml_array_t *mousebinds = toml_array_in(table, "mousebinds");
+	if (mousebinds) {
+		int nelem = toml_array_nelem(mousebinds);
+		for (int i = 0; i < nelem; i++) {
+			toml_table_t *bind = toml_table_at(mousebinds, i);
+			if (!bind) {
+				continue;
+			}
+
+			toml_datum_t button = toml_string_in(bind, "button");
+			if (button.ok) {
+				mousebind->button = mousebind_button_from_str(button.u.s,
+					&mousebind->modifiers);
+				free(button.u.s);
+			}
+
+			toml_datum_t action_str = toml_string_in(bind, "action");
+			if (action_str.ok) {
+				mousebind->mouse_event = mousebind_event_from_str(action_str.u.s);
+				free(action_str.u.s);
+			}
+
+			toml_array_t *actions = toml_array_in(bind, "actions");
+			if (actions) {
+				append_parsed_actions_toml(actions, &mousebind->actions);
+			}
+		}
+	}
 }

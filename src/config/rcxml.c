@@ -21,6 +21,7 @@
 #include "common/parse-bool.h"
 #include "common/parse-double.h"
 #include "common/string-helpers.h"
+#include "common/toml.h"
 #include "common/xml.h"
 #include "config/default-bindings.h"
 #include "config/keybind.h"
@@ -1967,6 +1968,12 @@ validate(void)
 void
 rcxml_read(const char *filename)
 {
+	size_t len = filename ? strlen(filename) : 0;
+	if (len > 5 && !strcmp(filename + len - 5, ".toml")) {
+		toml_read_config(filename);
+		return;
+	}
+
 	rcxml_init();
 
 	struct wl_list paths;

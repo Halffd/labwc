@@ -20,6 +20,60 @@
 
 static toml_table_t *toml_root;
 
+static void
+read_keyboard_toml(toml_table_t *table)
+{
+	toml_table_t *keyboard = toml_table_in(table, "keyboard");
+	if (!keyboard) {
+		return;
+	}
+
+	toml_array_t *keybinds = toml_array_in(keyboard, "keybind");
+	if (!keybinds) {
+		return;
+	}
+
+	int nelem = toml_array_nelem(keybinds);
+	for (int i = 0; i < nelem; i++) {
+		toml_table_t *bind = toml_table_at(keybinds, i);
+		if (!bind) {
+			continue;
+		}
+
+		toml_datum_t key = toml_string_in(bind, "key");
+		if (!key.ok) {
+			continue;
+		}
+
+		fill_keybind_toml(key.u.s, bind);
+		free(key.u.s);
+	}
+}
+
+static void
+read_mouse_toml(toml_table_t *table)
+{
+	toml_table_t *mouse = toml_table_in(table, "mouse");
+	if (!mouse) {
+		return;
+	}
+
+	int nkval = toml_table_nkval(mouse);
+	for (int i = 0; i < nkval; i++) {
+		const char *name = toml_key_in(mouse, i);
+		if (!name) {
+			continue;
+		}
+
+		toml_table_t *context = toml_table_in(mouse, name);
+		if (!context) {
+			continue;
+		}
+
+		fill_mouse_context_toml(name, context);
+	}
+}
+
 void
 toml_read_config(const char *filename)
 {
@@ -38,7 +92,8 @@ toml_read_config(const char *filename)
 		return;
 	}
 
-	wlr_log(WLR_INFO, "TOML config parsing is not yet fully implemented");
-	toml_free(toml_root);
-	toml_root = NULL;
+	read_keyboard_toml(toml_root);
+	read_mouse_toml(toml_root);
+
+	wlr_log(WLR_INFO, "TOML config parsing completed");
 }

@@ -3,6 +3,7 @@
 #include "action.h"
 #include <assert.h>
 #include <signal.h>
+#include <stdio.h>
 #include <string.h>
 #include <strings.h>
 #include <unistd.h>
@@ -11,12 +12,13 @@
 #include <wlr/util/log.h>
 #include "action-prompt-codes.h"
 #include "common/buf.h"
-#include "common/macros.h"
 #include "common/list.h"
+#include "common/macros.h"
 #include "common/mem.h"
 #include "common/parse-bool.h"
 #include "common/spawn.h"
 #include "common/string-helpers.h"
+#include "common/toml.h"
 #include "config/rcxml.h"
 #include "cycle.h"
 #include "debug.h"
@@ -586,6 +588,151 @@ action_create(const char *action_name)
 	action->type = action_type;
 	wl_list_init(&action->args);
 	return action;
+}
+
+static void
+action_arg_from_toml(struct action *action, const char *key, toml_datum_t value)
+{
+	switch (action->type) {
+	case ACTION_TYPE_EXECUTE:
+		if (!strcmp(key, "command")) {
+			action_arg_add_str(action, key, value.u.s);
+			return;
+		}
+		break;
+	case ACTION_TYPE_MOVE_TO_EDGE:
+	case ACTION_TYPE_TOGGLE_SNAP_TO_EDGE:
+	case ACTION_TYPE_SNAP_TO_EDGE:
+	case ACTION_TYPE_GROW_TO_EDGE:
+	case ACTION_TYPE_SHRINK_TO_EDGE:
+		if (!strcmp(key, "direction")) {
+			bool tiled = (action->type == ACTION_TYPE_TOGGLE_SNAP_TO_EDGE
+					|| action->type == ACTION_TYPE_SNAP_TO_EDGE);
+			enum lab_edge edge = lab_edge_parse(value.u.s, tiled, /*any*/ false);
+			if (edge == LAB_EDGE_NONE) {
+				wlr_log(WLR_ERROR, "Invalid argument for action %s: '%s' (%s)",
+					action_names[action->type], key, value.u.s);
+			} else {
+				action_arg_add_int(action, key, edge);
+			}
+			return;
+		}
+		if (action->type == ACTION_TYPE_MOVE_TO_EDGE
+				&& !strcasecmp(key, "snapWindows")) {
+			action_arg_add_bool(action, key, value.u.b);
+			return;
+		}
+		if ((action->type == ACTION_TYPE_SNAP_TO_EDGE
+					|| action->type == ACTION_TYPE_TOGGLE_SNAP_TO_EDGE)
+				&& !strcasecmp(key, "combine")) {
+			action_arg_add_bool(action, key, value.u.b);
+			return;
+		}
+		break;
+	case ACTION_TYPE_SHOW_MENU:
+		if (!strcmp(key, "menu")) {
+			action_arg_add_str(action, key, value.u.s);
+			return;
+		}
+		break;
+	case ACTION_TYPE_SEND_TO_DESKTOP:
+	case ACTION_TYPE_GO_TO_DESKTOP:
+		if (!strcmp(key, "to")) {
+			action_arg_add_str(action, key, value.u.s);
+			return;
+		}
+		break;
+	default:
+		break;
+	}
+	action_arg_add_str(action, key, value.u.s);
+}
+
+struct action *
+action_create_from_toml(toml_table_t *table)
+{
+	toml_datum_t name = toml_string_in(table, "name");
+	if (!name.ok) {
+		wlr_log(WLR_ERROR, "action is missing 'name' field");
+		return NULL;
+	}
+
+	struct action *action = action_create(name.u.s);
+	free(name.u.s);
+	if (!action) {
+		return NULL;
+	}
+
+	int nkval = toml_table_nkval(table);
+	for (int i = 0; i < nkval; i++) {
+		const char *key = toml_key_in(table, i);
+		if (!strcmp(key, "name")) {
+			continue;
+		}
+
+		if (!strcmp(key, "then") || !strcmp(key, "else") || !strcmp(key, "none")) {
+			toml_array_t *arr = toml_array_in(table, key);
+			if (arr) {
+				action_arg_add_actionlist(action, key);
+				struct wl_list *list = action_get_actionlist(action, key);
+				append_parsed_actions_toml(arr, list);
+			}
+			continue;
+		}
+
+		if (!strcmp(key, "query")) {
+			toml_array_t *arr = toml_array_in(table, key);
+			if (arr) {
+				action_arg_add_querylist(action, key);
+				/* TODO: implement query parsing for TOML */
+				wlr_log(WLR_DEBUG, "query parsing not yet implemented for TOML");
+			}
+			continue;
+		}
+
+		toml_datum_t val = toml_string_in(table, key);
+		if (val.ok) {
+			action_arg_from_toml(action, key, val);
+			free(val.u.s);
+			continue;
+		}
+
+		val = toml_bool_in(table, key);
+		if (val.ok) {
+			action_arg_add_bool(action, key, val.u.b);
+			continue;
+		}
+
+		val = toml_int_in(table, key);
+		if (val.ok) {
+			action_arg_add_int(action, key, (int)val.u.i);
+			continue;
+		}
+
+		val = toml_double_in(table, key);
+		if (val.ok) {
+			action_arg_add_int(action, key, (int)val.u.d);
+			continue;
+		}
+	}
+
+	return action;
+}
+
+void
+append_parsed_actions_toml(toml_array_t *actions_array, struct wl_list *list)
+{
+	int nelem = toml_array_nelem(actions_array);
+	for (int i = 0; i < nelem; i++) {
+		toml_table_t *action_table = toml_table_at(actions_array, i);
+		if (!action_table) {
+			continue;
+		}
+		struct action *action = action_create_from_toml(action_table);
+		if (action) {
+			wl_list_append(list, &action->link);
+		}
+	}
 }
 
 bool

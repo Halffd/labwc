@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include <sys/types.h>
 #include <wayland-util.h>
+#include "common/toml.h"
 
 struct view;
 struct server;
@@ -22,6 +23,7 @@ struct action {
 };
 
 struct action *action_create(const char *action_name);
+struct action *action_create_from_toml(toml_table_t *table);
 
 const char *action_get_str(struct action *action, const char *key,
 	const char *default_value);
@@ -36,6 +38,7 @@ struct wl_list *action_get_actionlist(struct action *action, const char *key);
 struct wl_list *action_get_querylist(struct action *action, const char *key);
 
 void action_arg_from_xml_node(struct action *action, const char *nodename, const char *content);
+void append_parsed_actions_toml(toml_array_t *actions_array, struct wl_list *list);
 
 bool actions_contain_toggle_keybinds(struct wl_list *action_list);
 

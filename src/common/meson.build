@@ -18,5 +18,6 @@ labwc_sources += files(
   'set.c',
   'spawn.c',
   'string-helpers.c',
+  'toml.c',
   'xml.c',
 )

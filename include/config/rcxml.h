@@ -219,6 +219,7 @@ extern struct rcxml rc;
 
 void rcxml_read(const char *filename);
 void rcxml_finish(void);
+void toml_read_config(const char *filename);
 
 /*
  * Parse the child <action> nodes and append them to the list.

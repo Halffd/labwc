@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include <wayland-util.h>
 #include "common/node-type.h"
+#include "common/toml.h"
 
 enum mouse_event {
 	MOUSE_ACTION_NONE = 0,
@@ -49,5 +50,7 @@ uint32_t mousebind_button_from_str(const char *str, uint32_t *modifiers);
 enum direction mousebind_direction_from_str(const char *str, uint32_t *modifiers);
 struct mousebind *mousebind_create(const char *context);
 bool mousebind_the_same(struct mousebind *a, struct mousebind *b);
+
+void fill_mouse_context_toml(const char *name, toml_table_t *table);
 
 #endif /* LABWC_MOUSEBIND_H */

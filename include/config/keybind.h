@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include <wayland-util.h>
 #include <xkbcommon/xkbcommon.h>
+#include "common/toml.h"
 
 #define MAX_KEYSYMS 32
 #define MAX_KEYCODES 16
@@ -47,4 +48,6 @@ bool keybind_contains_keycode(struct keybind *keybind, xkb_keycode_t keycode);
 bool keybind_contains_keysym(struct keybind *keybind, xkb_keysym_t keysym);
 
 void keybind_update_keycodes(void);
+
+void fill_keybind_toml(const char *key, toml_table_t *table);
 #endif /* LABWC_KEYBIND_H */

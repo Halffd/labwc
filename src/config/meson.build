@@ -1,5 +1,6 @@
 labwc_sources += files(
   'rcxml.c',
+  'rcxml_toml.c',
   'keybind.c',
   'session.c',
   'mousebind.c',

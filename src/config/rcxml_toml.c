@@ -10,6 +10,7 @@
 #include <wlr/util/log.h>
 #include "action.h"
 #include "common/dir.h"
+#include "common/list.h"
 #include "common/mem.h"
 #include "common/parse-bool.h"
 #include "common/string-helpers.h"
@@ -17,6 +18,7 @@
 #include "config/keybind.h"
 #include "config/mousebind.h"
 #include "config/default-bindings.h"
+#include "window-rules.h"
 #include "labwc.h"
 #include "view.h"
 
@@ -258,6 +260,103 @@ read_window_switcher_toml(toml_table_t *table)
 }
 
 static void
+fill_window_rule_toml(toml_table_t *table)
+{
+	struct window_rule *rule = znew(*rule);
+	rule->window_type = LAB_WINDOW_TYPE_INVALID;
+	wl_list_append(&rc.window_rules, &rule->link);
+	wl_list_init(&rule->actions);
+
+	toml_datum_t identifier = toml_string_in(table, "identifier");
+	if (identifier.ok) {
+		xstrdup_replace(rule->identifier, identifier.u.s);
+		free(identifier.u.s);
+	}
+
+	toml_datum_t title = toml_string_in(table, "title");
+	if (title.ok) {
+		xstrdup_replace(rule->title, title.u.s);
+		free(title.u.s);
+	}
+
+	toml_datum_t match_once = toml_bool_in(table, "matchOnce");
+	if (match_once.ok) {
+		rule->match_once = match_once.u.b;
+	}
+
+	toml_datum_t sandbox_engine = toml_string_in(table, "sandboxEngine");
+	if (sandbox_engine.ok) {
+		xstrdup_replace(rule->sandbox_engine, sandbox_engine.u.s);
+		free(sandbox_engine.u.s);
+	}
+
+	toml_datum_t sandbox_app_id = toml_string_in(table, "sandboxAppId");
+	if (sandbox_app_id.ok) {
+		xstrdup_replace(rule->sandbox_app_id, sandbox_app_id.u.s);
+		free(sandbox_app_id.u.s);
+	}
+
+	toml_datum_t server_dec = toml_string_in(table, "serverDecoration");
+	if (server_dec.ok) {
+		if (!strcasecmp(server_dec.u.s, "yes") || !strcasecmp(server_dec.u.s, "force")) {
+			rule->server_decoration = LAB_PROP_TRUE;
+		} else if (!strcasecmp(server_dec.u.s, "no")) {
+			rule->server_decoration = LAB_PROP_FALSE;
+		} else {
+			rule->server_decoration = LAB_PROP_UNSET;
+		}
+		free(server_dec.u.s);
+	}
+
+	toml_datum_t skip_taskbar = toml_string_in(table, "skipTaskbar");
+	if (skip_taskbar.ok) {
+		if (!strcasecmp(skip_taskbar.u.s, "yes")) {
+			rule->skip_taskbar = LAB_PROP_TRUE;
+		} else if (!strcasecmp(skip_taskbar.u.s, "no")) {
+			rule->skip_taskbar = LAB_PROP_FALSE;
+		} else {
+			rule->skip_taskbar = LAB_PROP_UNSET;
+		}
+		free(skip_taskbar.u.s);
+	}
+
+	toml_datum_t skip_switcher = toml_string_in(table, "skipWindowSwitcher");
+	if (skip_switcher.ok) {
+		if (!strcasecmp(skip_switcher.u.s, "yes")) {
+			rule->skip_window_switcher = LAB_PROP_TRUE;
+		} else if (!strcasecmp(skip_switcher.u.s, "no")) {
+			rule->skip_window_switcher = LAB_PROP_FALSE;
+		} else {
+			rule->skip_window_switcher = LAB_PROP_UNSET;
+		}
+		free(skip_switcher.u.s);
+	}
+
+	toml_array_t *actions = toml_array_in(table, "actions");
+	if (actions) {
+		append_parsed_actions_toml(actions, &rule->actions);
+	}
+}
+
+static void
+read_window_rules_toml(toml_table_t *table)
+{
+	toml_array_t *window_rules = toml_array_in(table, "windowRules");
+	if (!window_rules) {
+		return;
+	}
+
+	int nelem = toml_array_nelem(window_rules);
+	for (int i = 0; i < nelem; i++) {
+		toml_table_t *rule = toml_table_at(window_rules, i);
+		if (!rule) {
+			continue;
+		}
+		fill_window_rule_toml(rule);
+	}
+}
+
+static void
 read_keyboard_toml(toml_table_t *table)
 {
 	toml_table_t *keyboard = toml_table_in(table, "keyboard");
@@ -338,6 +437,7 @@ toml_read_config(const char *filename)
 	read_resistance_toml(toml_root);
 	read_theme_toml(toml_root);
 	read_window_switcher_toml(toml_root);
+	read_window_rules_toml(toml_root);
 
 	wlr_log(WLR_INFO, "TOML config parsing completed");
 }

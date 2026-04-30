@@ -16,6 +16,7 @@
 #include "common/string-helpers.h"
 #include "common/toml.h"
 #include "config/keybind.h"
+#include "config/libinput.h"
 #include "config/mousebind.h"
 #include "config/default-bindings.h"
 #include "window-rules.h"
@@ -357,6 +358,168 @@ read_window_rules_toml(toml_table_t *table)
 }
 
 static void
+read_libinput_toml(toml_table_t *table)
+{
+	toml_table_t *libinput = toml_table_in(table, "libinput");
+	if (!libinput) {
+		return;
+	}
+
+	int nkval = toml_table_nkval(libinput);
+	for (int i = 0; i < nkval; i++) {
+		const char *key = toml_key_in(libinput, i);
+		if (!key) {
+			continue;
+		}
+
+		toml_table_t *device = toml_table_in(libinput, key);
+		if (!device) {
+			continue;
+		}
+
+		struct libinput_category *category = libinput_category_create();
+
+		enum lab_libinput_device_type type = get_device_type(key);
+		if (type != LAB_LIBINPUT_DEVICE_NONE) {
+			category->type = type;
+		} else {
+			xstrdup_replace(category->name, key);
+		}
+
+		toml_datum_t natural_scroll = toml_bool_in(device, "naturalScroll");
+		if (natural_scroll.ok) {
+			category->natural_scroll = natural_scroll.u.b ? 1 : 0;
+		}
+
+		toml_datum_t left_handed = toml_bool_in(device, "leftHanded");
+		if (left_handed.ok) {
+			category->left_handed = left_handed.u.b ? 1 : 0;
+		}
+
+		toml_datum_t pointer_speed = toml_double_in(device, "pointerSpeed");
+		if (pointer_speed.ok) {
+			category->pointer_speed = (float)pointer_speed.u.d;
+			if (category->pointer_speed < -1) {
+				category->pointer_speed = -1;
+			} else if (category->pointer_speed > 1) {
+				category->pointer_speed = 1;
+			}
+		}
+
+		toml_datum_t tap = toml_bool_in(device, "tap");
+		if (tap.ok) {
+			category->tap = tap.u.b
+				? LIBINPUT_CONFIG_TAP_ENABLED
+				: LIBINPUT_CONFIG_TAP_DISABLED;
+		}
+
+		toml_datum_t tap_button_map = toml_string_in(device, "tapButtonMap");
+		if (tap_button_map.ok) {
+			if (!strcmp(tap_button_map.u.s, "lrm")) {
+				category->tap_button_map = LIBINPUT_CONFIG_TAP_MAP_LRM;
+			} else if (!strcmp(tap_button_map.u.s, "lmr")) {
+				category->tap_button_map = LIBINPUT_CONFIG_TAP_MAP_LMR;
+			}
+			free(tap_button_map.u.s);
+		}
+
+		toml_datum_t tap_and_drag = toml_bool_in(device, "tapAndDrag");
+		if (tap_and_drag.ok) {
+			category->tap_and_drag = tap_and_drag.u.b
+				? LIBINPUT_CONFIG_DRAG_ENABLED
+				: LIBINPUT_CONFIG_DRAG_DISABLED;
+		}
+
+		toml_datum_t drag_lock = toml_string_in(device, "dragLock");
+		if (drag_lock.ok) {
+			if (!strcasecmp(drag_lock.u.s, "timeout")) {
+				category->drag_lock = LIBINPUT_CONFIG_DRAG_LOCK_ENABLED;
+			} else {
+				int ret = parse_bool(drag_lock.u.s, -1);
+				if (ret < 0) {
+					category->drag_lock = -1;
+				} else {
+					category->drag_lock = ret
+						? LIBINPUT_CONFIG_DRAG_LOCK_ENABLED
+						: LIBINPUT_CONFIG_DRAG_LOCK_DISABLED;
+				}
+			}
+			free(drag_lock.u.s);
+		}
+
+		toml_datum_t accel_profile = toml_string_in(device, "accelProfile");
+		if (accel_profile.ok) {
+			if (!strcasecmp(accel_profile.u.s, "flat")) {
+				category->accel_profile = LIBINPUT_CONFIG_ACCEL_PROFILE_FLAT;
+			} else if (!strcasecmp(accel_profile.u.s, "adaptive")) {
+				category->accel_profile = LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE;
+			} else {
+				category->accel_profile = -1;
+			}
+			free(accel_profile.u.s);
+		}
+
+		toml_datum_t middle_emu = toml_bool_in(device, "middleEmulation");
+		if (middle_emu.ok) {
+			category->middle_emu = middle_emu.u.b
+				? LIBINPUT_CONFIG_MIDDLE_EMULATION_ENABLED
+				: LIBINPUT_CONFIG_MIDDLE_EMULATION_DISABLED;
+		}
+
+		toml_datum_t dwt = toml_bool_in(device, "disableWhileTyping");
+		if (dwt.ok) {
+			category->dwt = dwt.u.b
+				? LIBINPUT_CONFIG_DWT_ENABLED
+				: LIBINPUT_CONFIG_DWT_DISABLED;
+		}
+
+		toml_datum_t click_method = toml_string_in(device, "clickMethod");
+		if (click_method.ok) {
+			if (!strcasecmp(click_method.u.s, "none")) {
+				category->click_method = LIBINPUT_CONFIG_CLICK_METHOD_NONE;
+			} else if (!strcasecmp(click_method.u.s, "buttonareas")) {
+				category->click_method = LIBINPUT_CONFIG_CLICK_METHOD_BUTTON_AREAS;
+			} else if (!strcasecmp(click_method.u.s, "clickfinger")) {
+				category->click_method = LIBINPUT_CONFIG_CLICK_METHOD_CLICKFINGER;
+			} else {
+				category->click_method = -1;
+			}
+			free(click_method.u.s);
+		}
+
+		toml_datum_t scroll_method = toml_string_in(device, "scrollMethod");
+		if (scroll_method.ok) {
+			if (!strcasecmp(scroll_method.u.s, "none")) {
+				category->scroll_method = LIBINPUT_CONFIG_SCROLL_NO_SCROLL;
+			} else if (!strcasecmp(scroll_method.u.s, "button")) {
+				category->scroll_method = LIBINPUT_CONFIG_SCROLL_ON_BUTTON_DOWN;
+			} else if (!strcasecmp(scroll_method.u.s, "edge")) {
+				category->scroll_method = LIBINPUT_CONFIG_SCROLL_EDGE;
+			} else if (!strcasecmp(scroll_method.u.s, "twofinger")) {
+				category->scroll_method = LIBINPUT_CONFIG_SCROLL_2FG;
+			} else {
+				category->scroll_method = -1;
+			}
+			free(scroll_method.u.s);
+		}
+
+		toml_datum_t send_events = toml_string_in(device, "sendEventsMode");
+		if (send_events.ok) {
+			if (!strcasecmp(send_events.u.s, "enabled")) {
+				category->send_events_mode = LIBINPUT_CONFIG_SEND_EVENTS_ENABLED;
+			} else if (!strcasecmp(send_events.u.s, "disabled")) {
+				category->send_events_mode = LIBINPUT_CONFIG_SEND_EVENTS_DISABLED;
+			} else if (!strcasecmp(send_events.u.s, "disabled-on-external-mouse")) {
+				category->send_events_mode = LIBINPUT_CONFIG_SEND_EVENTS_DISABLED_ON_EXTERNAL_MOUSE;
+			} else {
+				category->send_events_mode = -1;
+			}
+			free(send_events.u.s);
+		}
+	}
+}
+
+static void
 read_keyboard_toml(toml_table_t *table)
 {
 	toml_table_t *keyboard = toml_table_in(table, "keyboard");
@@ -438,6 +601,7 @@ toml_read_config(const char *filename)
 	read_theme_toml(toml_root);
 	read_window_switcher_toml(toml_root);
 	read_window_rules_toml(toml_root);
+	read_libinput_toml(toml_root);
 
 	wlr_log(WLR_INFO, "TOML config parsing completed");
 }

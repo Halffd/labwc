@@ -19,6 +19,10 @@
 #include "config/libinput.h"
 #include "config/mousebind.h"
 #include "config/default-bindings.h"
+#include "config/touch.h"
+#include "config/tablet.h"
+#include "config/tablet-tool.h"
+#include "regions.h"
 #include "window-rules.h"
 #include "labwc.h"
 #include "view.h"
@@ -822,6 +826,165 @@ read_magnifier_toml(toml_table_t *table)
 	}
 }
 
+static void
+read_regions_toml(toml_table_t *table)
+{
+	toml_array_t *regions = toml_array_in(table, "regions");
+	if (!regions) {
+		return;
+	}
+
+	int nelem = toml_array_nelem(regions);
+	for (int i = 0; i < nelem; i++) {
+		toml_table_t *region = toml_table_at(regions, i);
+		if (!region) {
+			continue;
+		}
+
+		struct region *r = znew(*r);
+		wl_list_append(&rc.regions, &r->link);
+
+		toml_datum_t name = toml_string_in(region, "name");
+		if (name.ok) {
+			xstrdup_replace(r->name, name.u.s);
+			free(name.u.s);
+		}
+
+		toml_datum_t x = toml_int_in(region, "x");
+		if (x.ok) {
+			r->percentage.x = (int)x.u.i;
+		}
+
+		toml_datum_t y = toml_int_in(region, "y");
+		if (y.ok) {
+			r->percentage.y = (int)y.u.i;
+		}
+
+		toml_datum_t width = toml_int_in(region, "width");
+		if (width.ok) {
+			r->percentage.width = (int)width.u.i;
+		}
+
+		toml_datum_t height = toml_int_in(region, "height");
+		if (height.ok) {
+			r->percentage.height = (int)height.u.i;
+		}
+	}
+}
+
+static void
+read_touch_toml(toml_table_t *table)
+{
+	toml_table_t *touch = toml_table_in(table, "touch");
+	if (!touch) {
+		return;
+	}
+
+	int nkval = toml_table_nkval(touch);
+	for (int i = 0; i < nkval; i++) {
+		const char *key = toml_key_in(touch, i);
+		if (!key) {
+			continue;
+		}
+
+		toml_table_t *device = toml_table_in(touch, key);
+		if (!device) {
+			continue;
+		}
+
+		struct touch_config_entry *t = znew(*t);
+		wl_list_append(&rc.touch_configs, &t->link);
+
+		t->device_name = xstrdup(key);
+
+		toml_datum_t map_to_output = toml_string_in(device, "mapToOutput");
+		if (map_to_output.ok) {
+			t->output_name = xstrdup(map_to_output.u.s);
+			free(map_to_output.u.s);
+		}
+
+		toml_datum_t mouse_emulation = toml_bool_in(device, "mouseEmulation");
+		if (mouse_emulation.ok) {
+			t->force_mouse_emulation = mouse_emulation.u.b;
+		}
+	}
+}
+
+static void
+read_tablet_toml(toml_table_t *table)
+{
+	toml_table_t *tablet = toml_table_in(table, "tablet");
+	if (!tablet) {
+		return;
+	}
+
+	toml_datum_t rotate = toml_int_in(tablet, "rotate");
+	if (rotate.ok) {
+		rc.tablet.rotation = tablet_parse_rotation((int)rotate.u.i);
+	}
+
+	toml_datum_t force_mouse = toml_bool_in(tablet, "forceMouseEmulation");
+	if (force_mouse.ok) {
+		rc.tablet.force_mouse_emulation = force_mouse.u.b;
+	}
+
+	toml_datum_t output = toml_string_in(tablet, "mapToOutput");
+	if (output.ok) {
+		xstrdup_replace(rc.tablet.output_name, output.u.s);
+		free(output.u.s);
+	}
+
+	toml_datum_t area_left = toml_double_in(tablet, "areaLeft");
+	if (area_left.ok) {
+		rc.tablet.box.x = area_left.u.d;
+	}
+
+	toml_datum_t area_top = toml_double_in(tablet, "areaTop");
+	if (area_top.ok) {
+		rc.tablet.box.y = area_top.u.d;
+	}
+
+	toml_datum_t area_width = toml_double_in(tablet, "areaWidth");
+	if (area_width.ok) {
+		rc.tablet.box.width = area_width.u.d;
+	}
+
+	toml_datum_t area_height = toml_double_in(tablet, "areaHeight");
+	if (area_height.ok) {
+		rc.tablet.box.height = area_height.u.d;
+	}
+}
+
+static void
+read_tablet_tool_toml(toml_table_t *table)
+{
+	toml_table_t *tablet_tool = toml_table_in(table, "tabletTool");
+	if (!tablet_tool) {
+		return;
+	}
+
+	toml_datum_t motion = toml_string_in(tablet_tool, "motion");
+	if (motion.ok) {
+		rc.tablet_tool.motion = tablet_parse_motion(motion.u.s);
+		free(motion.u.s);
+	}
+
+	toml_datum_t relative_sensitivity = toml_double_in(tablet_tool, "relativeMotionSensitivity");
+	if (relative_sensitivity.ok) {
+		rc.tablet_tool.relative_motion_sensitivity = relative_sensitivity.u.d;
+	}
+
+	toml_datum_t min_pressure = toml_double_in(tablet_tool, "minPressure");
+	if (min_pressure.ok) {
+		rc.tablet_tool.min_pressure = min_pressure.u.d;
+	}
+
+	toml_datum_t max_pressure = toml_double_in(tablet_tool, "maxPressure");
+	if (max_pressure.ok) {
+		rc.tablet_tool.max_pressure = max_pressure.u.d;
+	}
+}
+
 void
 toml_read_config(const char *filename)
 {
@@ -857,6 +1020,10 @@ toml_read_config(const char *filename)
 	read_desktops_toml(toml_root);
 	read_menu_toml(toml_root);
 	read_magnifier_toml(toml_root);
+	read_regions_toml(toml_root);
+	read_touch_toml(toml_root);
+	read_tablet_toml(toml_root);
+	read_tablet_tool_toml(toml_root);
 
 	wlr_log(WLR_INFO, "TOML config parsing completed");
 }

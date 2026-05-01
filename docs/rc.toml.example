@@ -1,0 +1,146 @@
+# Labwc TOML Configuration Sample
+# This is an example rc.toml configuration file demonstrating all supported options.
+# Copy this to ~/.config/labwc/rc.toml and edit as needed.
+
+[core]
+decoration = "server"           # "server" or "client"
+gap = 0
+adaptiveSync = "fullscreen"     # "yes", "no", or "fullscreen"
+allowTearing = "no"            # "yes", "no", or "fullscreen"
+autoEnableOutputs = true
+reuseOutputMode = true
+xwaylandPersistence = true
+primarySelection = true
+hideMaximizeButton = false
+promptCommand = ""
+
+[placement]
+policy = "cascade"             # "cascade", "center", "mouse", "top-left"
+cascadeOffsetX = 60
+cascadeOffsetY = 60
+
+[focus]
+followMouse = true
+followMouseRequiresMovement = true
+raiseOnFocus = true
+
+[resistance]
+screenEdgeStrength = 20
+windowEdgeStrength = 10
+unSnapThreshold = 50
+unMaximizeThreshold = 50
+
+[theme]
+name = "default"
+iconTheme = "Adwaita"
+fallbackIconTheme = "hicolor"
+cornerRadius = 8
+showTitle = true
+keepBorder = true
+
+[snapping]
+innerRange = 10
+outerRange = 10
+cornerRange = 50
+overlay = true
+innerDelay = 0
+outerDelay = 200
+topMaximize = true
+tilingEvents = "always"         # "always", "region", "edge", or "never"
+
+[resize]
+popupShow = "non-pixel"        # "always", "non-pixel", or "never"
+drawContents = false
+cornerRange = 4
+minimumArea = 0
+
+[magnifier]
+width = 400
+height = 200
+initScale = 1.5
+increment = 0.1
+useFilter = true
+
+# Keyboard keybinds
+[keyboard.keybind]
+key = "W-Return"
+actions = [{ name = "Execute", command = "foot" }]
+
+[keyboard.keybind]
+key = "A-F4"
+actions = [{ name = "Close" }]
+
+[keyboard.keybind]
+key = "A-Escape"
+actions = [{ name = "Exit" }]
+
+[keyboard.keybind]
+key = "W-d"
+actions = [{ name = "Execute", command = "wofi --show drun" }]
+
+[keyboard.keybind]
+key = "W-Tab"
+actions = [{ name = "NextWindow" }]
+
+[keyboard.keybind]
+key = "A-Space"
+actions = [{ name = "ShowMenu", menu = "root-menu" }]
+
+# Mouse bindings (Root context)
+[mouse.Root]
+mousebinds = [
+    { button = "Left", action = "press", actions = [{ name = "Focus" }, { name = "Raise" }] },
+    { button = "Right", action = "press", actions = [{ name = "ShowMenu", menu = "root-menu" }] },
+    { button = "Middle", action = "press", actions = [{ name = "ToggleFakeFullscreen" }] },
+]
+
+# Mouse bindings (Titlebar context)
+[mouse.Titlebar]
+mousebinds = [
+    { button = "Left", action = "drag", actions = [{ name = "Move" }] },
+    { button = "Right", action = "press", actions = [{ name = "ShowMenu", menu = "client-menu" }] },
+]
+
+# Mouse bindings (Window context)
+[mouse.Window]
+mousebinds = [
+    { button = "Left", action = "press", actions = [{ name = "Focus" }, { name = "Raise" }] },
+    { button = "Left", action = "drag", actions = [{ name = "Move" }] },
+    { button = "Right", action = "press", actions = [{ name = "ShowMenu", menu = "client-menu" }] },
+]
+
+# Window Rules
+[[windowRules]]
+identifier = "foot"
+actions = [{ name = "Maximize" }]
+
+[[windowRules]]
+identifier = "wofi"
+matchOnce = true
+actions = [{ name = "Center" }]
+
+# Libinput device configuration
+[libinput.default]
+naturalScroll = false
+leftHanded = false
+pointerSpeed = 0.0
+tap = false
+tapButtonMap = "lrm"           # "lrm" or "lmr"
+tapAndDrag = false
+dragLock = false
+accelProfile = "adaptive"      # "adaptive" or "flat"
+middleEmulation = false
+disableWhileTyping = true
+clickMethod = "buttonareas"    # "none", "buttonareas", or "clickfinger"
+scrollMethod = "edge"          # "none", "button", "edge", or "twofinger"
+
+# Desktops configuration
+[desktops]
+popupTime = 0
+prefix = "desktop-"
+initial = "1"
+
+# Menu configuration
+[menu]
+ignoreButtonReleasePeriod = 0
+showIcons = true
